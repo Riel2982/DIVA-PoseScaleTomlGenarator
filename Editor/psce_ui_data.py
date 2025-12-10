@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import configparser
 import os
-from psce_util import CustomMessagebox, normalize_comma_separated_string
+from psce_util import CustomMessagebox, normalize_text, normalize_comma_separated_string
 
 # PoseScaleDataタブUIクラス
 class PoseDataTab:
@@ -173,14 +173,31 @@ class PoseDataTab:
 
     # ポーズデータリストの更新
     def refresh_pose_data_list(self, select_first=False):
+        # 現在の選択を保存
+        last_selection = self.app.selected_pose_data_section
+
         self.app.pose_data_listbox.delete(0, 'end')
         if not self.app.current_pose_config: return
         for section in self.app.current_pose_config.sections():
             if section.startswith('PoseScaleSetting_'):
                 self.app.pose_data_listbox.insert('end', section)
         
-        # Select first item only on initial load
-        if select_first and self.app.pose_data_listbox.size() > 0:
+        # 選択を復元
+        restored = False
+        if last_selection:
+            items = self.app.pose_data_listbox.get(0, 'end')
+            try:
+                idx = items.index(last_selection)
+                self.app.pose_data_listbox.selection_set(idx)
+                self.app.pose_data_listbox.activate(idx)
+                # Ensure UI is updated
+                self.on_pose_data_select(None)
+                restored = True
+            except ValueError:
+                pass # Previous selection not found
+
+        # Select first item only on initial load if restoration failed
+        if select_first and not restored and self.app.pose_data_listbox.size() > 0:
             self.app.pose_data_listbox.selection_set(0)
             # Directly call handler to ensure UI is updated
             self.on_pose_data_select(None)
@@ -351,7 +368,7 @@ class PoseDataTab:
             return
         
         # セクション名を取得
-        suffix = self.app.pd_section_suffix_var.get()
+        suffix = normalize_text(self.app.pd_section_suffix_var.get())
         # セクション名が存在しない場合
         if not suffix:
             CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("req_suffix"), self.app.root)
@@ -392,7 +409,7 @@ class PoseDataTab:
         exclude_val = normalize_comma_separated_string(self.app.pd_exclude_var.get())
         
         # PoseIDとScaleの検証
-        raw_val = self.app.pd_pose_id_var.get()
+        raw_val = normalize_text(self.app.pd_pose_id_var.get())
         if '(' in raw_val and raw_val.endswith(')'):        # ポーズIDが括弧で囲まれている場合
             pose_id = raw_val.split('(')[-1].strip(')')     # ポーズIDを括弧で囲まれた部分に変換
         else:
@@ -401,7 +418,7 @@ class PoseDataTab:
         # Convert full-width numbers to half-width（全角数字を半角に変換）
         pose_id = pose_id.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
 
-        scale_val = self.app.pd_scale_var.get()
+        scale_val = normalize_text(self.app.pd_scale_var.get())
         # Convert full-width numbers and period to half-width（全角数字とピリオドを半角に変換）
         scale_val = scale_val.translate(str.maketrans('０１２３４５６７８９．', '0123456789.'))
 
@@ -434,7 +451,7 @@ class PoseDataTab:
                  return
 
         # セクション名を取得
-        suffix = self.app.pd_section_suffix_var.get()
+        suffix = normalize_text(self.app.pd_section_suffix_var.get())
         # セクション名が存在しない場合
         if not suffix:
             CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("req_suffix"), self.app.root)
