@@ -3,7 +3,7 @@ from tkinter import ttk, filedialog, messagebox
 import sys
 import os
 import subprocess
-from psce_util import CustomMessagebox
+from psce_util import CustomMessagebox, normalize_text
 
 # General Settings（一般設定）
 class GeneralSettingsTab:
@@ -103,9 +103,13 @@ class GeneralSettingsTab:
 
     # デバッグ設定切り替え
     def toggle_debug_settings(self):
+        # リフレッシュボタンの表示切り替え
+        if hasattr(self.app, 'toggle_refresh_button'):
+            self.app.toggle_refresh_button(self.app.show_debug_var.get())
+
         if self.app.show_debug_var.get():
             self.frame_debug.pack(fill='x', padx=10, pady=5)
-            # Show KeyMap tab（KeyMapタブ表示）
+            # KeyMapタブ表示
             if hasattr(self.app, 'ui_key'):
                 # notebook.tabs()は文字列のタプルを返すので、tabオブジェクトのパスと比較
                 tab_id = str(self.app.ui_key.tab)
@@ -114,7 +118,7 @@ class GeneralSettingsTab:
         # デバッグ設定非表示
         else:
             self.frame_debug.pack_forget()
-            # Hide KeyMap tab（KeyMapタブ非表示）
+            # KeyMapタブ非表示
             if hasattr(self.app, 'ui_key'):
                 tab_id = str(self.app.ui_key.tab)
                 if tab_id in self.app.notebook.tabs():
@@ -130,11 +134,14 @@ class GeneralSettingsTab:
     def save_general_settings(self):
         self.app.history.snapshot('general')
         # GeneralSettings保存
+        if 'FarcPack' not in self.app.main_config: self.app.main_config['FarcPack'] = {}
+        self.app.main_config['FarcPack']['FarcPackPath'] = normalize_text(self.app.farc_path_var.get())
+
         if 'GeneralSettings' not in self.app.main_config: self.app.main_config['GeneralSettings'] = {}
         self.app.main_config['GeneralSettings']['SaveInParentDirectory'] = str(self.app.save_parent_var.get())
         
         # DefaultPoseFileName検証
-        def_pose_name = self.app.def_pose_name_var.get()
+        def_pose_name = normalize_text(self.app.def_pose_name_var.get())
         # 半角英数字と記号のみで構成されているか検証
         if not all(c.isascii() and (c.isalnum() or c in ('_', '-', '.')) for c in def_pose_name):
              CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("err_filename_chars"), self.app.root)
