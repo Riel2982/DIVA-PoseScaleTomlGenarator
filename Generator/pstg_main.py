@@ -54,11 +54,11 @@ def main():
             launch_editor()
             return
 
-        # 2. ログの初期化
-        # debug_settings = app_config['DebugSettings'] # REMOVE: app_config is a dict, not ConfigParser（削除予定）
+        # 2. ログの初期化（削除予定）
+        # debug_settings = app_config['DebugSettings'] 
         
         # DebugSettingsの読み込み
-        # app_config['ConfigParser'] contains the raw ConfigParser object
+        # app_configにはConfigParserオブジェクトが含まれている
         config_parser = app_config['ConfigParser']
         
         show_debug = config_parser.getboolean('DebugSettings', 'ShowDebugSettings', fallback=False)
@@ -66,7 +66,7 @@ def main():
         delete_temp = app_config.get('DeleteTemp', True)
 
         if not show_debug:
-            # Force defaults if debug settings are hidden（デバッグ設定が非表示の場合、デフォルト値を強制的に使用する）
+            # デバッグ設定が非表示の場合、デフォルト値を強制的に使用する
             output_log = False
             delete_temp = True
             
@@ -92,10 +92,11 @@ def main():
             logging.error("データの抽出に失敗しました。処理を中止します。")
             return
 
-        # 5. PoseScale設定の読み込み
+        # 5. PoseScale設定の読み込み（設定ファイルが存在しない場合は設定エディタを起動して終了）
         pose_settings = pstg_loader.load_pose_scale_settings(module_data, app_config) # PoseScale設定の読み込み
         if not pose_settings:
             logging.error("有効なPoseScale設定が読み込めませんでした。処理を中止します。")
+            launch_editor() # 設定エディタを起動
             return
 
         # 6. キャラクターマッピングの取得
