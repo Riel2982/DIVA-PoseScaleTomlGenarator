@@ -290,6 +290,12 @@ class ProfileTab:
         exclude_val = normalize_comma_separated_string(self.app.prof_exclude_var.get())
         config_file = self.app.prof_config_var.get()
         pose_file_name = self.app.prof_pose_file_var.get()
+        
+        # 半角英数と特定の記号のみを許可する
+        if not all(c.isascii() and (c.isalnum() or c in ('_', '-', '.')) for c in pose_file_name):
+             # エラーメッセージ表示
+             CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("err_filename_chars"), self.app.root)
+             return
 
         # Check for changes (変更があるか確認)
         has_changes = False
