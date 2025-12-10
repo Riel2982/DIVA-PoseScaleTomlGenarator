@@ -107,7 +107,8 @@ class ConfigEditorApp:
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-    def create_toolbar(self):   # ツールバーの作成
+
+    def create_toolbar(self):
         toolbar = ttk.Frame(self.root, padding=2)
         toolbar.pack(side='top', fill='x')
         
@@ -116,6 +117,16 @@ class ConfigEditorApp:
         
         self.btn_redo = ttk.Button(toolbar, text=self.trans.get("redo"), command=self.redo, state='disabled')
         self.btn_redo.pack(side='left', padx=2)
+
+        # タブの再読み込みボタン（右端）- 初期状態では非表示（GeneralSettingsTabで制御）
+        self.refresh_btn = ttk.Button(toolbar, text=self.trans.get("refresh_tab"), command=self.refresh_current_tab)
+        
+    def toggle_refresh_button(self, visible):
+        """リフレッシュボタンの表示/非表示を切り替え"""
+        if visible:
+            self.refresh_btn.pack(side='right', padx=2)
+        else:
+            self.refresh_btn.pack_forget()
 
     def get_current_context(self):
         """現在のタブを取得"""
@@ -135,6 +146,33 @@ class ConfigEditorApp:
         """Redo操作"""
         context = self.get_current_context()
         self.history.redo(context)
+
+    def refresh_current_tab(self):
+        # 現在のコンテキストを取得
+        context = self.get_current_context()
+        
+        # 現在の状態を保存して再読み込み
+        self.history.snapshot(context)
+        
+        # コンテキストに基づいて特定のファイルを再読み込み
+        if context == 'general':
+            self.main_config = self.utils.load_config(self.utils.main_config_path)
+        elif context == 'profile':
+            self.profile_config = self.utils.load_config(self.utils.profile_config_path)
+        elif context == 'data':
+            # PoseScaleDataタブは内部で再読み込みを処理します（ディレクトリスキャン + ファイルの再読み込み）
+            self.pose_data_tab.refresh_pose_files()
+            # 再読み込みを処理する必要はありません
+            return
+        elif context == 'map':
+            self.pose_id_map = self.utils.load_config(self.utils.pose_id_map_path)
+        elif context == 'key':
+            self.key_manager.load_key_map()
+            self.key_manager.apply_shortcuts(self.root)
+            self.ui_key.refresh_key_list()
+            
+        # UIを更新
+        self.refresh_current_tab_ui()
 
     def update_undo_redo_buttons(self):
         """Undo/Redoボタンの状態を更新"""
@@ -221,7 +259,6 @@ class ConfigEditorApp:
         widget.bind('<KeyRelease>', on_change)
         widget.bind('<Control-z>', undo)
         widget.bind('<Control-y>', redo)
-        widget.bind('<Control-Shift-Z>', redo)
 
     def refresh_current_tab_ui(self):
         """すべてのタブを更新して一貫性を保つ"""
@@ -233,9 +270,21 @@ class ConfigEditorApp:
         self.general_tab.app.use_module_name_contains_var.set(self.main_config.getboolean('GeneralSettings', 'UseModuleNameContains', fallback=True))
         self.general_tab.app.overwrite_existing_var.set(self.main_config.getboolean('GeneralSettings', 'OverwriteExistingFiles', fallback=False))
         
+        # Language
+        lang_code = self.main_config.get('GeneralSettings', 'Language', fallback='en')
+        lang_display = "English" if lang_code == 'en' else "日本語"
+        self.general_tab.app.lang_var.set(lang_display)
+        
+        # Debug Settings
+        self.general_tab.app.show_debug_var.set(self.main_config.getboolean('DebugSettings', 'ShowDebugSettings', fallback=False))
+        self.general_tab.toggle_debug_settings()
+        self.general_tab.app.debug_log_var.set(self.main_config.getboolean('DebugSettings', 'OutputLog', fallback=False))
+        self.general_tab.app.del_temp_var.set(self.main_config.getboolean('DebugSettings', 'DeleteTemp', fallback=True))
+        self.general_tab.app.history_limit_var.set(self.main_config.getint('DebugSettings', 'HistoryLimit', fallback=50))
+        
         # Profile Settings
         self.ui_profile.refresh_profile_list()
-        # Restore selection if possible (logic omitted for brevity, but list refresh clears selection usually)
+        # Restore selection if possible（リストの再読み込みは通常、選択をクリアするため、選択を復元することはできません）
         
         # Pose Data Settings
         self.pose_data_tab.refresh_pose_data_list()
@@ -323,7 +372,7 @@ class ConfigEditorApp:
             if current_config is None:
                 print("Failed to load config for saving geometry. Skipping save.")
                 return
-            # if not current_config: # This check is now redundant if None check handles failure（このチェックは、Noneチェックが失敗を処理する場合、不要になりました）
+            # このチェックは、Noneチェックが失敗を処理する場合、不要になりました
             #     current_config = self.main_config # Fallback（バックアップ）  
         except Exception:
             current_config = self.main_config
@@ -346,12 +395,46 @@ class ConfigEditorApp:
                 print(f"Failed to clean up trash: {e}")
 
     def on_closing(self):
-        self.save_geometry()
-        self.perform_cleanup()
-        self.root.destroy()
+        try:
+            self.save_geometry()
+            
+            # 未削除の画像を処理
+            if self.pending_delete_images:
+                try:
+                    # PoseIDMapを再読み込みして最新の状態を取得
+                    current_map = self.utils.load_config(self.utils.pose_id_map_path)
+                    if current_map:
+                        # 現在使用されている画像を集める
+                        used_images = set()
+                        if current_map.has_section('PoseImages'):
+                            for _, filename in current_map.items('PoseImages'):
+                                used_images.add(filename)
+                        
+                        for image_path in self.pending_delete_images:
+                            filename = os.path.basename(image_path)
+                            # 未使用の画像のみ削除
+                            if filename not in used_images:
+                                try:
+                                    if os.path.exists(image_path):
+                                        os.remove(image_path)
+                                        print(f"Deleted unused image: {image_path}")
+                                except Exception as e:
+                                    print(f"Failed to delete image {image_path}: {e}")
+                            else:
+                                print(f"Skipped deletion of restored image: {filename}")
+                except Exception as e:
+                    print(f"Error processing image deletions: {e}")
+            
+            # クリーンアップ処理
+            self.perform_cleanup()
+            
+        except Exception as e:
+            print(f"Error during shutdown: {e}")
+        finally:
+            self.root.destroy()
 
     def select_listbox_item(self, listbox, item_text):
-        # Helper to select item in listbox by text（リストボックス内の項目を選択するヘルパー）
+        # リストボックス内の項目を選択するヘルパー
         items = listbox.get(0, 'end')
         try:
             idx = items.index(item_text)
