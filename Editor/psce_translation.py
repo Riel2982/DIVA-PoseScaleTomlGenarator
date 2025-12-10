@@ -115,6 +115,7 @@ class TranslationManager:
                 "keymap_restore_default": "Default",
                 "keymap_saved": "KeyMap settings saved and applied.",
                 "keymap_no_changes": "No changes made.",
+                "refresh_tab": "Refresh Tab",
             },
             "ja": {
                 "window_title": "PoseScale 設定エディタ",
@@ -216,7 +217,20 @@ class TranslationManager:
                 "clear": "クリア",
                 "cancel": "キャンセル",
                 "edit": "編集",
+                "action_save_current_tab": "現在のタブを保存",
+                "action_save_and_exit": "保存して終了",
+                "action_exit_no_save": "保存せずに終了",
+                "action_restart_no_save": "保存せずに再起動",
+                "action_save_and_restart": "保存して再起動",
+                "action_undo": "元に戻す",
+                "action_redo": "やり直し",
+                "action_toggle_debug": "デバッグ設定の有効化",
+                "keymap_tab_title": "ショートカットキー設定",
+                "keymap_restore_default": "デフォルトに戻す",
+                "keymap_saved": "KeyMap設定を保存しました。",
+                "keymap_no_changes": "変更がありません。",
                 "err_filename_chars": "ファイル名は半角英数字と一部記号のみ使用可能です。",
+                "refresh_tab": "再読み込み",
             },
         }
 
