@@ -84,31 +84,42 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
 
 
 ## 更新履歴
-### beta0 (2025/11/21)
-- "gm_module_tbl.farc"を読み込んで対応するPose / ScaleのTomlファイルを生成（Generator）
-    - TomlProfieのMatchModule設定を使うことでTomlファイル生成のための設定データを使い分けることが可能
+### beta0 (2025-11-21)
+- "gm_module_tbl.farc"を読み込んで対応するPose / ScaleのTomlファイルを生成［Generator］
+    - TomlProfileのMatchModule設定を使うことでTomlファイル生成のための設定データを使い分けることが可能
     - 各種設定データ（iniファイル郡）は自力で編集する前提（Editor未実装）
 
-### beta1 (2025/11/30)
-- Generatorの起動・処理に必要な各種設定データをGUIから編集可能に（Editor）
-    - General Settings: "Farck Pack"パス指定、Tomlファイル出力場所の切り替え、'Toml Profie'使用有無の切り替え、デフォルトPoseTomlファイル名の設定、出力Tomlの上書き保存切り替え
+### beta1 (2025-11-30)
+- Generatorの起動・処理に必要な各種設定データをGUIから編集可能に［Editor］
+    - General Settings: "Farck Pack"パス指定、Tomlファイル出力場所の切り替え、'Toml Profile'使用有無の切り替え、デフォルトPoseTomlファイル名の設定、出力Tomlの上書き保存切り替え
     - Toml Profile: 読み込んだ"gm_module_tbl.farc"からどのToml Profileを使用するかを判別する条件設定編集
     - Pose Scale Data: どのモジュールにどのPose・Scaleを当てはめるか判別する条件設定編集
     - Pose ID Map: PoseIDリストを作成（必須ではない）
-- キャラ枠指定でのPose・ScaleのTomlデータを出力可能に（Generator）
-- 同名ファイルが存在する場合は常にタイムスタンプ付きでリネームしてバックアップしていたのを、上書き保存するか選べるように（Generator）
+- キャラ枠指定でのPose・ScaleのTomlデータを出力可能に［Generator］
+- 同名ファイルが存在する場合は常にタイムスタンプ付きでリネームしてバックアップしていたのを、上書き保存するか選べるように［Generator］
 
-### beta2 (2025/12/03)
-- Toml Profile有効時でも該当するプロファイルが存在しない場合はデフォルトデータ（PoseScaleData.ini）を使用してTomlファイルを作成するように変更（Generator）
-- Undo / Redo 機能を各タブごとに分離・実行できるように変更（Editor）
-- テキストボックス入力でのCtl+Z / Ctl+Yのショートカットを有効化（Editor）
+### beta2 (2025-12-03)
+- Toml Profile有効時でも該当するプロファイルが存在しない場合はデフォルトデータ（PoseScaleData.ini）を使用してTomlファイルを作成するように変更［Generator］
+- Undo / Redo 機能を各タブごとに分離・実行できるように変更［Editor］
+- テキストボックス入力でのCtl+Z / Ctl+Yのショートカットを有効化［Editor］
     - 'Pose Scale Data'タブのPose ID入力欄は未対応。
-- モジュール一致・モジュール除外入力欄にカンマ補正機能を実装（Editor）
+- モジュール一致・モジュール除外入力欄にカンマ補正機能を実装［Editor］
     - ```A,B```や```A, B,```のような入力ミスを```A, B```という形式に補正します。
-- 'Toml Profile'タブ・'Pose Scale Data'タブ・'Pose ID Map'タブでリストのアイテムをDeleteした時にDelete対象の前後のアイテムを選択状態に切り替えるように変更（Editor）
-- 'Toml Profile'タブ・'Pose Scale Data'タブ・'Pose ID Map'タブでリストのアイテムをUndo/Redoで復元した時に復元されたアイテムを選択状態に切り替えるように変更（Editor）
-- 各種Save/UpdateおよびDeleate時のポップアップを廃止（Editor）
+- 'Toml Profile'タブ・'Pose Scale Data'タブ・'Pose ID Map'タブでリストのアイテムをDeleteした時にDelete対象の前後のアイテムを選択状態に切り替えるように変更［Editor］
+- 'Toml Profile'タブ・'Pose Scale Data'タブ・'Pose ID Map'タブでリストのアイテムをUndo/Redoで復元した時に復元されたアイテムを選択状態に切り替えるように変更［Editor］
+- 各種Save/UpdateおよびDeleate時のポップアップを廃止［Editor］
+
+### beta3 (2025-12-10)
+- "FarcPack"のパスが'General Settings'で保存されない不具合の修正［Editor］
+- カンマ補正機能に読点の半角カンマ変換を追加［Editor］
+    -  ```A、B```を```A, B```という形式に補正します。
+- テキストボックス入力欄末尾の不要なスペースを削除する補正機能を追加［Editor］
+- 'Pose Scale Data'タブでScale以外の編集内容がUndo/Redoで復元できない不具合を修正［Editor］
+- 'Pose Scale Data'タブでカンマ補正が実行されても画面に反映されない不具合を修正［Editor］
+- 'General Settings'タブのデフォルトPoseファイル名と'Toml Profile'タブのPoseファイル名設定欄で使用できる文字を半角英数字記号のみに制限［Editor］
+- アプリアイコン画像を変更［Editor］
+- 有効なPoseScale設定が存在しない場合は設定エディタを起動するように変更［Generator］
 
 
 ### 既知の不具合
-- 画像プレビューの削除動作はRedoで再現できない（それ以外の操作はRedoで再現できる）
+- 画像プレビューの削除動作はRedoで再現できない（それ以外の操作はRedoで再現できる）［Editor］
