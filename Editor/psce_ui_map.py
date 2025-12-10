@@ -2,9 +2,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
 import os
-from psce_util import CustomMessagebox
+from psce_util import CustomMessagebox, normalize_text
 
-# ポーズIDマップタブUIクラス
+# PoseID MapタブUIクラス
 class PoseIDMapTab:
     # 初期化
     def __init__(self, notebook, app):
@@ -85,14 +85,31 @@ class PoseIDMapTab:
 
     # ポーズIDマップリストの更新
     def refresh_pose_id_map_list(self, select_first=False):
+        # 現在の選択を保存
+        last_selection_key = self.app.selected_map_key
+
         self.app.map_listbox.delete(0, 'end')
         # ポーズIDマップセクションがある場合
         if self.app.pose_id_map.has_section('PoseIDs'):
             for key, value in self.app.pose_id_map.items('PoseIDs'):
                 self.app.map_listbox.insert('end', f"{key}: {value}")
-                
-        # Select first item only on initial load
-        if select_first and self.app.map_listbox.size() > 0:
+        
+        # 選択を復元
+        restored = False
+        if last_selection_key:
+            items = self.app.map_listbox.get(0, 'end')
+            for i, item in enumerate(items):
+                if item.startswith(f"{last_selection_key}:"):
+                    self.app.map_listbox.selection_set(i)
+                    self.app.map_listbox.activate(i)
+                    self.app.map_listbox.see(i) # Ensure visible
+                    # Ensure UI is updated
+                    self.on_map_select(None)
+                    restored = True
+                    break
+
+        # Select first item only on initial load if restoration failed
+        if select_first and not restored and self.app.map_listbox.size() > 0:
             self.app.map_listbox.selection_set(0)
             # Directly call handler to ensure UI is updated
             self.on_map_select(None)
@@ -354,8 +371,8 @@ class PoseIDMapTab:
 
     # マップを保存
     def save_map_entry(self):
-        pose_id = self.app.map_id_var.get()
-        name = self.app.map_name_var.get()
+        pose_id = normalize_text(self.app.map_id_var.get())
+        name = normalize_text(self.app.map_name_var.get())
 
         # Check for changes
         has_changes = False
