@@ -133,10 +133,11 @@ class GeneralSettingsTab:
         if 'GeneralSettings' not in self.app.main_config: self.app.main_config['GeneralSettings'] = {}
         self.app.main_config['GeneralSettings']['SaveInParentDirectory'] = str(self.app.save_parent_var.get())
         
-        # Validation for DefaultPoseFileName（DefaultPoseFileName検証）
+        # DefaultPoseFileName検証
         def_pose_name = self.app.def_pose_name_var.get()
-        if not all(c.isalnum() or c in ('_', '-', '.') for c in def_pose_name):
-             CustomMessagebox.show_error(self.trans.get("error"), "Default Pose File Name must be half-width alphanumeric and symbols only.", self.app.root)
+        # 半角英数字と記号のみで構成されているか検証
+        if not all(c.isascii() and (c.isalnum() or c in ('_', '-', '.')) for c in def_pose_name):
+             CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("err_filename_chars"), self.app.root)
              return
 
         # DefaultPoseFileName保存
@@ -180,12 +181,13 @@ class GeneralSettingsTab:
         # 設定保存
         self.app.utils.save_config(self.app.main_config, self.app.utils.main_config_path)
         
-        # Apply settings immediately where possible
+        # 設定反映（可能であれば即時反映）
         self.app.trans.load_language(lang_code)
-        # Refresh UI text (requires restart or complex refresh, simpler to just save)
+        # UIテキスト更新（再起動または複雑な再読み込みが必要な場合は、単純な保存で十分）
         
         self.app.show_status_message("General settings saved.")
 
+    # 設定読み込み
     def load_settings(self):
         """Restore UI state from main_config"""
         self.app.farc_path_var.set(self.app.main_config.get('FarcPack', 'FarcPackPath', fallback=''))
