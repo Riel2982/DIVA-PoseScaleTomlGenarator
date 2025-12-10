@@ -1,7 +1,4 @@
 *.log
 /Riel2982/
-<<<<<<< HEAD
 *.zip
-=======
-*.zip
->>>>>>> b713bbf1da13c17aaf8ca09b87a90513850197df
+*.editorconfig
