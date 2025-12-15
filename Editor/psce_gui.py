@@ -5,6 +5,9 @@ import os
 import io
 import configparser
 import sys
+import shutil
+import logging
+import traceback
 from psce_util import ConfigUtility
 from psce_translation import TranslationManager
 from psce_history import HistoryManager
@@ -17,10 +20,14 @@ from psce_ui_key import KeyMapTab
 
 class ConfigEditorApp:
     def __init__(self, root):
+        # 初期化コード
         self.root = root
         self.utils = ConfigUtility()
         self.trans = TranslationManager()
-        
+
+        # 未削除画像リストの初期化（追加）
+        self.pending_delete_images = []
+
         # Load Configs
         self.main_config = self.utils.load_config(self.utils.main_config_path)
         if self.main_config is None:
@@ -462,22 +469,74 @@ class ConfigEditorApp:
 
     def perform_cleanup(self):
         """終了時のクリーンアップ処理（画像削除など）"""
+        # 関数が呼ばれたことを確認
+        logging.info("====== perform_cleanup() CALLED ======")
+
         # ゴミ箱フォルダを空にする
         trash_dir = os.path.join(self.utils.pose_images_dir, '_trash')
+        logging.info(f"Cleanup: Checking trash directory: {trash_dir}")
+
         if os.path.exists(trash_dir):
+            logging.info(f"Cleanup: Trash directory exists, attempting to delete...")
             try:
-                import shutil
-                shutil.rmtree(trash_dir)
+                # フォルダ内のファイルを個別に削除
+                for root, dirs, files in os.walk(trash_dir, topdown=False):
+                    for name in files:
+                        file_path = os.path.join(root, name)
+                        try:
+                            os.chmod(file_path, 0o777)
+                            os.remove(file_path)
+                            logging.info(f"Deleted file: {file_path}")
+                        except Exception as e:
+                            logging.warning(f"Failed to delete file {file_path}: {e}")
+                    
+                    for name in dirs:
+                        dir_path = os.path.join(root, name)
+                        try:
+                            os.rmdir(dir_path)
+                            logging.info(f"Deleted directory: {dir_path}")
+                        except Exception as e:
+                            logging.warning(f"Failed to delete directory {dir_path}: {e}")
+                
+                # trashディレクトリ自体を削除
+                try:
+                    os.rmdir(trash_dir)
+                    logging.info(f"Successfully cleaned up trash directory")
+                except Exception as e:
+                    logging.warning(f"Failed to remove trash directory: {e}")
+                    shutil.rmtree(trash_dir, ignore_errors=True)
+                    
+            except Exception as e:
+                logging.error(f"Error during cleanup: {e}")
+        else:
+            logging.info(f"Cleanup: Trash directory does not exist")            
+            """
+            try:
+                # ignore_errors=True　で強制削除
+                shutil.rmtree(trash_dir, ignore_errors=True)
                 print(f"Cleaned up trash directory: {trash_dir}")
             except Exception as e:
-                print(f"Failed to clean up trash: {e}")
+                print(f"Failed to clean up trash (ignored): {e}")
+                # エラーでも処理を続行
+            """
+        # 関数の終了を確認
+        logging.info("====== perform_cleanup() FINISHED ======")
+        
+        # ログを即座にフラッシュ
+        for handler in logging.getLogger().handlers:
+            handler.flush()
 
     def on_closing(self):
+        logging.info("====== on_closing() CALLED ======")        
+
         try:
+            logging.info("Step 1: Saving geometry")
             self.save_geometry()
-            
+
+            logging.info("Step 2: Processing pending delete images")            
             # 未削除の画像を処理
-            if self.pending_delete_images:
+            if hasattr(self, 'pending_delete_images') and self.pending_delete_images:
+            # if self.pending_delete_images:
                 try:
                     # PoseIDMapを再読み込みして最新の状態を取得
                     current_map = self.utils.load_config(self.utils.pose_id_map_path)
@@ -496,19 +555,42 @@ class ConfigEditorApp:
                                     if os.path.exists(image_path):
                                         os.remove(image_path)
                                         print(f"Deleted unused image: {image_path}")
+                                        logging.info(f"Deleted unused image: {image_path}")
                                 except Exception as e:
                                     print(f"Failed to delete image {image_path}: {e}")
+                                    logging.warning(f"Failed to delete image {image_path}: {e}")
                             else:
                                 print(f"Skipped deletion of restored image: {filename}")
+                                logging.info(f"Skipped deletion of restored image: {filename}")
                 except Exception as e:
                     print(f"Error processing image deletions: {e}")
+                    logging.error(f"Error processing image deletions: {e}")
+            else:
+                logging.info("No pending delete images")
+            
+            logging.info("Step 3: Calling perform_cleanup()")       
             
             # クリーンアップ処理
             self.perform_cleanup()
-            
+            logging.info("Step 4: Flushing logs")
+            # ログをフラッシュ
+            logging.info("=== Editor closing ===")
+            for handler in logging.getLogger().handlers:
+                handler.flush()            
+        
+            logging.info("Step 5: Cleanup completed successfully")       
+
         except Exception as e:
             print(f"Error during shutdown: {e}")
+            logging.error(f"Error during shutdown: {e}")
+            logging.error(traceback.format_exc())
+            # エラーでもログをフラッシュ
+            for handler in logging.getLogger().handlers:
+                handler.flush()            
         finally:
+            logging.info("Step 6: Destroying root window")
+            for handler in logging.getLogger().handlers:
+                handler.flush()            
             self.root.destroy()
 
     def select_listbox_item(self, listbox, item_text):

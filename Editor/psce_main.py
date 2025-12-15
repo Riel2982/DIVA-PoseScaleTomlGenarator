@@ -1,8 +1,26 @@
 import tkinter as tk
+import os
+import configparser
 from psce_gui import ConfigEditorApp
+from psce_util import setup_editor_logging, ConfigUtility
 
 # メイン関数
 if __name__ == "__main__":
+    
+    # ConfigUtilityを使ってConfig.iniを読み込む
+    utils = ConfigUtility()
+    config = utils.load_config(utils.main_config_path)
+    
+    show_debug = False
+    output_log = False
+    if config:
+        show_debug = config.getboolean('DebugSettings', 'ShowDebugSettings', fallback=False)
+        output_log = config.getboolean('DebugSettings', 'OutputLog', fallback=False)
+    
+    # ログ初期化
+    setup_editor_logging(show_debug=show_debug, output_log=output_log)
+
+
     root = tk.Tk()  # ルートウィンドウを作成
     app = ConfigEditorApp(root) # アプリケーションのインスタンスを作成
     root.mainloop() # メインループを開始

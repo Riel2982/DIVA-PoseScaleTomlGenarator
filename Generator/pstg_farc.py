@@ -3,7 +3,8 @@ import os
 import shutil
 import subprocess
 import logging
-from pstg_util import get_temp_dir
+from pstg_util import get_temp_dir, make_hidden_folder
+
 
 def get_dragged_file():
     """コマンドライン引数からドラッグされたファイルを取得"""
@@ -21,7 +22,9 @@ def process_file(dragged_file, farc_pack_path):
     temp_dir = get_temp_dir() # 一時ディレクトリ
     
     # Tempフォルダの作成（存在しない場合）
-    os.makedirs(temp_dir, exist_ok=True)
+    # os.makedirs(temp_dir, exist_ok=True)
+    # Tempフォルダの作成（存在しない場合）+ 隠し属性設定
+    make_hidden_folder(temp_dir)
 
     basename = os.path.basename(dragged_file) # ドラッグアンドドロップされたファイル
     temp_file_path = os.path.join(temp_dir, basename) # 一時ファイルパス

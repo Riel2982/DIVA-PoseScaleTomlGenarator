@@ -2,6 +2,88 @@ import os
 import sys
 import configparser
 import shutil
+import ctypes
+import logging
+from logging.handlers import RotatingFileHandler
+
+def make_hidden_folder(path):
+    """
+    フォルダを作成し、Windows環境では隠し属性を設定
+    既に存在する場合も隠し属性を設定
+    """
+    # フォルダ作成
+    os.makedirs(path, exist_ok=True)
+    
+    # Windows環境でのみ隠し属性を設定
+    if os.name == 'nt':  # Windowsかチェック
+        try:
+            FILE_ATTRIBUTE_HIDDEN = 0x02
+            ctypes.windll.kernel32.SetFileAttributesW(path, FILE_ATTRIBUTE_HIDDEN)
+        except Exception:
+            print("Tempフォルダに隠し属性を設定できませんでした")
+            # 失敗しても処理続行（隠し属性が必須ではないため）
+            pass
+
+def get_app_dir():
+    """実行ファイルのディレクトリパスを取得"""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable) # 実行ファイルのディレクトリ
+    else:
+        return os.path.dirname(os.path.abspath(__file__)) # 実行ファイルのディレクトリ
+
+def setup_editor_logging(show_debug=False, output_log=False):
+    """ログの初期化"""
+    logger = logging.getLogger() # ロガー
+    logger.setLevel(logging.DEBUG) # ログレベル
+
+    if logger.hasHandlers(): # ハンドラーが設定されている場合
+        logger.handlers.clear()
+
+    # show_debug=Trueの時だけコンソール出力
+    if show_debug:
+        console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+        console_handler = logging.StreamHandler()    # コンソールハンドラー
+        console_handler.setLevel(logging.INFO)   # コンソールログレベル
+        console_handler.setFormatter(console_formatter)  # コンソールフォーマッター
+        logger.addHandler(console_handler)   # コンソールハンドラーを追加
+    else:
+        # show_debug=Falseの時はNullHandler（すべてのログメッセージを無視する特殊なハンドラー）で出力を完全に抑制
+        logger.addHandler(logging.NullHandler())    # Pythonのloggingモジュールが勝手に「lastResort」ハンドラーを使うのでその対策
+
+    # output_log=Trueの時だけファイル出力
+    if output_log:
+        file_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
+
+        app_dir = get_app_dir()  # 実行ファイルのディレクトリ
+        log_dir = os.path.join(app_dir, 'logs')  # ログディレクトリ
+        os.makedirs(log_dir, exist_ok=True)  # ログディレクトリを作成
+ 
+        # ファイルハンドラー
+        log_file = os.path.join(log_dir, 'Editor.log') # ログファイル
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=10 * 1024 * 1024, # ログファイルサイズ
+            backupCount=5, # バックアップファイル数
+            encoding='utf-8' # エンコーディング
+        ) # ログハンドラー
+        file_handler.setLevel(logging.INFO) # ファイルログレベル
+        file_handler.setFormatter(file_formatter) # ファイルフォーマッター
+        logger.addHandler(file_handler) # ファイルハンドラーを追加
+
+        debug_log_file = os.path.join(log_dir, 'debug_data.log') # デバッグログファイル
+        debug_handler = RotatingFileHandler(
+            debug_log_file,
+            maxBytes=10 * 1024 * 1024, # デバッグログファイルサイズ
+            backupCount=5, # バックアップファイル数
+            encoding='utf-8' # エンコーディング
+        ) # デバッグハンドラー
+        debug_handler.setLevel(logging.DEBUG) # デバッグログレベル
+        debug_handler.setFormatter(file_formatter) # デバッグフォーマッター
+        debug_handler.addFilter(lambda record: record.levelno == logging.DEBUG) # デバッグフィルター
+        logger.addHandler(debug_handler) # デバッグハンドラーを追加
+
+        logging.info("=== Editor started ===")
+        
 
 # 様々な処理関数クラス
 class ConfigUtility:

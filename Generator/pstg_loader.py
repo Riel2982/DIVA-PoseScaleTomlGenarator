@@ -8,7 +8,7 @@ def load_pose_scale_settings(module_data, app_config):
     app_dir = get_app_dir() # アプリケーションのディレクトリ
     settings_dir = app_config.get('SettingsDir', os.path.join(app_dir, 'Settings')) # 設定ディレクトリ
     
-    # Check for PoseScaleData in Settings first, then root（PoseScaleDataをSettingsフォルダから探し、なければrootフォルダから探し）
+    # PoseScaleDataをSettingsフォルダから探し、なければrootフォルダから探す
     pose_data_dir = os.path.join(settings_dir, 'PoseScaleData') # PoseScaleDataのディレクトリ
     if not os.path.exists(pose_data_dir): # PoseScaleDataのディレクトリが存在しない場合
         pose_data_dir = os.path.join(app_dir, 'PoseScaleData') # PoseScaleDataのディレクトリ
@@ -61,8 +61,8 @@ def load_pose_scale_settings(module_data, app_config):
                 else:
                     logging.info(f"Profile skipped (no match in module data): {section}")
         
-        # Always append PoseScaleData.ini as a fallback if UseModuleNameContains is True
-        # This ensures modules that didn't match any profile can still be handled by default settings
+        # UseModuleNameContainsがTrueの場合、PoseScaleData.iniを読み込む
+        # 該当するTomlProfileがない場合、PoseScaleData.iniを読み込む
         if 'PoseScaleData.ini' not in config_files_to_read:
              config_files_to_read.append('PoseScaleData.ini')
              logging.info("該当するTomlProfileがないためデフォルト（PoseScaleData.ini）を使用します")

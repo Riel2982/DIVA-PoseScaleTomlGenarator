@@ -3,7 +3,8 @@ from tkinter import ttk, filedialog, messagebox
 import sys
 import os
 import subprocess
-from psce_util import CustomMessagebox, normalize_text
+import logging
+from psce_util import CustomMessagebox, normalize_text, setup_editor_logging
 
 # General Settings（一般設定）
 class GeneralSettingsTab:
@@ -247,6 +248,14 @@ class GeneralSettingsTab:
 
         # 設定保存
         self.app.utils.save_config(self.app.main_config, self.app.utils.main_config_path)
+
+        # OutputLogの設定が変更された場合、ログ設定を再構築
+        new_output_log = self.app.main_config.getboolean('DebugSettings', 'OutputLog', fallback=False)
+        new_show_debug = self.app.main_config.getboolean('DebugSettings', 'ShowDebugSettings', fallback=False)
+        logging.info(f"ログ設定が変更されました")
+        # ログ設定を再構築
+        setup_editor_logging(show_debug=new_show_debug, output_log=new_output_log)
+
         self.app.show_status_message(self.trans.get("msg_saved_general")) # 保存完了の案内
         
         # 設定反映（可能であれば即時反映）

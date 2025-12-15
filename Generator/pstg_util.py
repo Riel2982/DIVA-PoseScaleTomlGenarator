@@ -2,6 +2,7 @@ import os
 import shutil
 import logging
 import sys
+import ctypes
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
 
@@ -16,29 +17,53 @@ def get_temp_dir():
     """Tempディレクトリのパスを取得"""
     return os.path.join(get_app_dir(), 'Temp') # Tempディレクトリ
 
-def setup_logging(output_log=False):
-    """ロガーの初期化"""
+def make_hidden_folder(path):
+    """
+    フォルダを作成し、Windows環境では隠し属性を設定
+    既に存在する場合も隠し属性を設定
+    """
+    # フォルダ作成
+    os.makedirs(path, exist_ok=True)
+    
+    # Windows環境でのみ隠し属性を設定
+    if os.name == 'nt':  # Windowsかチェック
+        try:
+            FILE_ATTRIBUTE_HIDDEN = 0x02
+            ctypes.windll.kernel32.SetFileAttributesW(path, FILE_ATTRIBUTE_HIDDEN)
+        except Exception:
+            logging.error("Tempフォルダに隠し属性を設定できませんでした")
+            # 失敗しても処理続行（隠し属性が必須ではないため）
+            pass
+
+def setup_logging(show_debug=False, output_log=False):
+    """ログの初期化"""
     logger = logging.getLogger() # ロガー
     logger.setLevel(logging.DEBUG) # ログレベル
 
     if logger.hasHandlers(): # ハンドラーが設定されている場合
         logger.handlers.clear()
 
-    console_formatter = logging.Formatter('%(levelname)s: %(message)s') # コンソールフォーマッター
-    file_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s') # ファイルフォーマッター
+    # show_debug=Trueの時だけコンソール出力
+    if show_debug:
+        console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+        console_handler = logging.StreamHandler()    # コンソールハンドラー
+        console_handler.setLevel(logging.INFO)   # コンソールログレベル
+        console_handler.setFormatter(console_formatter)  # コンソールフォーマッター
+        logger.addHandler(console_handler)   # コンソールハンドラーを追加
+    else:
+        # show_debug=Falseの時はNullHandler（すべてのログメッセージを無視する特殊なハンドラー）で出力を完全に抑制
+        logger.addHandler(logging.NullHandler())    # Pythonのloggingモジュールが勝手に「lastResort」ハンドラーを使うのでその対策
 
-    console_handler = logging.StreamHandler() # コンソールハンドラー
-    console_handler.setLevel(logging.INFO) # コンソールログレベル
-    console_handler.setFormatter(console_formatter) # コンソールフォーマッター
-    logger.addHandler(console_handler) # コンソールハンドラーを追加
-
-    # ファイル出力
+    # output_log=Trueの時だけファイル出力
     if output_log:
-        app_dir = get_app_dir() # 実行ファイルのディレクトリ
-        log_dir = os.path.join(app_dir, 'logs') # ログディレクトリ
-        os.makedirs(log_dir, exist_ok=True) # ログディレクトリを作成
+        file_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
 
-        log_file = os.path.join(log_dir, 'PoseScaleTomlGenerator.log') # ログファイル
+        app_dir = get_app_dir()  # 実行ファイルのディレクトリ
+        log_dir = os.path.join(app_dir, 'logs')  # ログディレクトリ
+        os.makedirs(log_dir, exist_ok=True)  # ログディレクトリを作成
+ 
+        # ファイルハンドラー
+        log_file = os.path.join(log_dir, 'Generator.log') # ログファイル
         file_handler = RotatingFileHandler(
             log_file,
             maxBytes=10 * 1024 * 1024, # ログファイルサイズ
@@ -80,17 +105,14 @@ def save_file_with_timestamp(file_path, data, overwrite=False):
         try:
             os.rename(file_path, rename_path)
             logging.info(f"既存のファイルをリネームしました: {rename_path}")
-            print(f"既存のファイルをリネームしました: {rename_path}")
         except OSError as e:
             logging.error(f"ファイルのリネームに失敗しました: {e}")
     elif os.path.exists(file_path) and overwrite: # 既存のファイルが存在する場合
         logging.info(f"既存のファイルを上書きします: {file_path}")
-        print(f"既存のファイルを上書きします: {file_path}")
 
     try: # ファイルを保存
         with open(file_path, 'w', encoding='utf-8') as save_file:
             save_file.write(data)
-        print(f'ファイルを保存しました {file_path}')
         logging.info(f'ファイルを保存しました {file_path}')
     except OSError as e: # ファイルの保存に失敗しました
         logging.error(f"ファイルの保存に失敗しました: {e}")
@@ -128,14 +150,15 @@ def is_match(name, contains_str, exclude_str=None):
     contains = contains_str.split(',') # contains_strをカンマ区切りで分割
     includes = [word.strip() for word in contains if word.strip() and not word.strip().startswith('|')] # includes（含むキーワード）
     
-    # Legacy support: excludes starting with | in contains_str（contains_str内の|で始まる除外キーワードのサポート）
-    legacy_excludes = [word.strip()[1:] for word in contains if word.strip().startswith('|')] # legacy_excludes（除外キーワード）
+    # contains_str内の|で始まる除外キーワードのサポート（専用設定項目を設けたので無効化中）
+    # legacy_excludes = [word.strip()[1:] for word in contains if word.strip().startswith('|')] # legacy_excludes（除外キーワード）
     
     explicit_excludes = [] # explicit_excludes（明示的除外キーワード）
     if exclude_str: # exclude_strが空の場合
         explicit_excludes = [word.strip() for word in exclude_str.split(',') if word.strip()] # explicit_excludes（明示的除外キーワード）
         
-    excludes = legacy_excludes + explicit_excludes # excludes（除外キーワード）
+    # excludes = legacy_excludes + explicit_excludes # excludes（除外キーワード）
+    excludes = explicit_excludes
 
     # 文字化け対策
     if '\ufffd' in includes:

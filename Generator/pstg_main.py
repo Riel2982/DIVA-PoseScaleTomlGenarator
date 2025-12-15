@@ -10,6 +10,17 @@ import pstg_pose
 import pstg_scale
 import pstg_util
 
+# コンソールウィンドウの存在チェック
+def has_console():
+    # Windowsの場合、stdoutが有効かで判定
+    try:
+        # sys.stdout.writable()でコンソール書き込み可能かチェック
+        return sys.stdout and sys.stdout.writable()
+    except:
+        return False
+
+
+# 設定エディタの起動
 def launch_editor():
     """FarckPackパスが有効でない場合、PoseScaleConfigEditor.exeを起動する"""
     # 実行ファイルのディレクトリを取得
@@ -22,7 +33,7 @@ def launch_editor():
 
     # 設定エディタの起動
     if os.path.exists(editor_path):
-        print("設定エディタを起動します...")
+        logging.info("設定エディタを起動します...")
         # Pythonファイルの場合
         if editor_path.endswith('.py'):
              subprocess.Popen([sys.executable, editor_path])
@@ -33,7 +44,9 @@ def launch_editor():
              subprocess.Popen([editor_path], creationflags=0x00000008 | 0x00000200)
     else:
         print(f"エラー: 設定エディタが見つかりません: {editor_path}")
-        input("Enterキーを押して終了してください...")
+        # input("Enterキーを押して終了してください...")
+        if has_console():  # コンソール使用時
+            input("Enterキーを押して終了してください...")
 
 # メイン処理
 def main():
@@ -70,7 +83,7 @@ def main():
             output_log = False
             delete_temp = True
             
-        pstg_util.setup_logging(output_log=output_log)
+        pstg_util.setup_logging(show_debug=show_debug, output_log=output_log)
         
         # プログラム開始ログ
         logging.info("プログラムを開始します")
@@ -78,7 +91,9 @@ def main():
         # 3. ファイルのドラッグ＆ドロップ処理(引数がない場合は使い方を表示して終了
         if len(sys.argv) < 2:
             print("Usage: Drag and drop a file onto this executable, or use the 'Send to' menu.")
-            input("Press Enter to exit...")
+            # input("Press Enter to exit...")
+            if has_console():
+                input("Press Enter to exit...")
             return
 
         dragged_file = pstg_farc.get_dragged_file() # ドラッグ＆ドロップされたファイルのパス
@@ -171,10 +186,13 @@ def main():
         print(f"予期せぬエラーが発生しました: {e}")
         import traceback
         traceback.print_exc()
-        input("Enterキーを押して終了してください...")
+        # input("Enterキーを押して終了してください...")
+        if has_console():   # コンソール使用時
+            input("Enterキーを押して終了してください...")  
+    
     finally:
         # 10. クリーンアップ (デバッグ設定に基づく)
-        # app_config might be None if load failed, so check carefully
+        # app_configが読み込まれていない場合、デバッグ設定をスキップする
         should_delete = True
         if 'app_config' in locals() and app_config:
              should_delete = app_config.get('DeleteTemp', True)

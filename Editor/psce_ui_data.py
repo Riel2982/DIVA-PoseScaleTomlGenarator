@@ -19,7 +19,8 @@ class PoseDataTab:
         frame_top = ttk.Frame(self.tab, padding=5)
         frame_top.pack(fill='x')
         ttk.Label(frame_top, text=self.trans.get("target_file")).pack(side='left')
-        self.app.pose_file_combo = ttk.Combobox(frame_top, width=40)
+        # self.app.pose_file_combo = ttk.Combobox(frame_top, width=40)
+        self.app.pose_file_combo = ttk.Combobox(frame_top, width=40, state='readonly')  # ← state='readonly'を追加してTargetファイル欄のテキストボックス入力を無効化
         self.app.pose_file_combo.pack(side='left', padx=5)
         self.app.pose_file_combo.bind('<<ComboboxSelected>>', self.load_pose_data_file)
         

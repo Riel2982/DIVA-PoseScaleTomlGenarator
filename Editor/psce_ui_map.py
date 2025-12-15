@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
 import os
-from psce_util import CustomMessagebox, normalize_text
+import shutil
+from psce_util import CustomMessagebox, normalize_text, make_hidden_folder
+
 
 # PoseID MapタブUIクラス
 class PoseIDMapTab:
@@ -174,10 +176,13 @@ class PoseIDMapTab:
             # Process pending trash if exists (User deleted old image then selected new one)
             if getattr(self, 'pending_trash_image', None):
                 try:
-                    import shutil
                     trash_dir = os.path.join(self.app.utils.pose_images_dir, '_trash')
                     if not os.path.exists(trash_dir):
-                        os.makedirs(trash_dir)
+                        make_hidden_folder(trash_dir)   # 隠し属性を付けて「_trash」フォルダを作成                    
+                    # 隠し属性はつけないでフォルダ作成
+                    # trash_dir = os.path.join(self.app.utils.pose_images_dir, '_trash')
+                    # if not os.path.exists(trash_dir):
+                        # os.makedirs(trash_dir)
                     trash_path = os.path.join(trash_dir, os.path.basename(self.pending_trash_image))
                     shutil.move(self.pending_trash_image, trash_path)
                     self.app.history.register_file_move('map', self.pending_trash_image, trash_path)
@@ -356,10 +361,13 @@ class PoseIDMapTab:
         # Move image to trash if it exists (filename-based matching)
         image_path = self.app.utils.find_image_for_pose(self.app.selected_map_key)
         if image_path:
-            import shutil
             trash_dir = os.path.join(self.app.utils.pose_images_dir, '_trash')
             if not os.path.exists(trash_dir):
-                os.makedirs(trash_dir)
+                make_hidden_folder(trash_dir) # 隠し属性を付けてフォルダ生成           
+            # 隠し属性を付けない場合
+            # trash_dir = os.path.join(self.app.utils.pose_images_dir, '_trash')
+            # if not os.path.exists(trash_dir):
+                # os.makedirs(trash_dir)
             trash_path = os.path.join(trash_dir, os.path.basename(image_path))
             try:
                 shutil.move(image_path, trash_path)
@@ -418,10 +426,13 @@ class PoseIDMapTab:
         try:
             # Process Pending Trash (Execute deletion)
             if getattr(self, 'pending_trash_image', None):
-                import shutil
                 trash_dir = os.path.join(self.app.utils.pose_images_dir, '_trash')
                 if not os.path.exists(trash_dir):
-                    os.makedirs(trash_dir)
+                    make_hidden_folder(trash_dir) # 隠し属性を付けてフォルダ生成   
+                # 隠し属性を付けない場合
+                # trash_dir = os.path.join(self.app.utils.pose_images_dir, '_trash')
+                # if not os.path.exists(trash_dir):
+                    # os.makedirs(trash_dir)
                 trash_path = os.path.join(trash_dir, os.path.basename(self.pending_trash_image))
                 
                 try:
