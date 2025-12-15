@@ -130,6 +130,6 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
 - 'Pose Scale Data'タブでSettingを新規追加した時、デフォルトのキャラ枠を'MIKU'で作成するように変更［Editor］
 - 'Pose Scale Data'タブのTargetファイル欄で文字入力ができないように修正［Editor］
 - 'PoseID Map'で不使用画像を削除できない不具合を修正［Editor］
-- 
+
 ### 既知の不具合
 - 画像プレビューの削除動作はRedoで再現できない（それ以外の操作はRedoで再現できる）［Editor］
