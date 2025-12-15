@@ -261,7 +261,7 @@ class PoseDataTab:
         # 新しいセクションを追加    
         section = f"PoseScaleSetting_{suffix}"
         self.app.current_pose_config.add_section(section)
-        self.app.current_pose_config.set(section, 'Chara', '')
+        self.app.current_pose_config.set(section, 'Chara', 'MIKU')  # キャラ枠設定を空文字 ''（指定なし）から 'MIKU'指定に変更
         self.app.current_pose_config.set(section, 'ModuleNameContains', '')
         self.app.current_pose_config.set(section, 'ModuleExclude', '')
         self.app.current_pose_config.set(section, 'PoseID', '')
@@ -389,14 +389,18 @@ class PoseDataTab:
     def save_pose_data(self):
         # ファイルが存在しない場合
         if not self.app.current_pose_config:
-            CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("no_file_selected"), self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("no_file_selected"), self.app.root)
+            self.app.show_status_message(self.trans.get("no_file_selected"), "error")
             return
         
         # セクション名を取得
-        suffix = normalize_text(self.app.pd_section_suffix_var.get())
+        suffix = normalize_text(self.app.pd_section_suffix_var)
+        # suffix = normalize_text(self.app.pd_section_suffix_var.get())
+
         # セクション名が存在しない場合
         if not suffix:
-            CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("req_suffix"), self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("req_suffix"), self.app.root)
+            self.app.show_status_message(self.trans.get("req_suffix"), "error")
             return
         new_section = f"PoseScaleSetting_{suffix}"
         
@@ -404,7 +408,8 @@ class PoseDataTab:
         if self.app.selected_pose_data_section and self.app.selected_pose_data_section != new_section:
             # 新しいセクション名と既存のセクション名が異なる場合
             if self.app.current_pose_config.has_section(new_section):
-                CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("duplicate_section_error", new_section), self.app.root)
+                # CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("duplicate_section_error", new_section), self.app.root)
+                self.app.show_status_message(self.trans.get("duplicate_section_error", new_section), "error")
                 return
             # 既存のセクション名が存在する場合
             if self.app.current_pose_config.has_section(self.app.selected_pose_data_section):
@@ -430,11 +435,15 @@ class PoseDataTab:
         display_name = self.app.pd_chara_var.get()
         code = self.chara_map.get(display_name, display_name) # Fallback to display name if not found（表示名が見つからない場合は表示名を使用する）
         # スナップショットロジックの後に移動
-        match_val = normalize_comma_separated_string(self.app.pd_match_var.get())
-        exclude_val = normalize_comma_separated_string(self.app.pd_exclude_var.get())
+        match_val = normalize_comma_separated_string(self.app.pd_match_var)
+        exclude_val = normalize_comma_separated_string(self.app.pd_exclude_var)
+        # match_val = normalize_comma_separated_string(self.app.pd_match_var.get())
+        # exclude_val = normalize_comma_separated_string(self.app.pd_exclude_var.get())
         
         # PoseIDとScaleの検証
-        raw_val = normalize_text(self.app.pd_pose_id_var.get())
+        raw_val = normalize_text(self.app.pd_pose_id_var)
+        # raw_val = normalize_text(self.app.pd_pose_id_var.get())
+        
         if '(' in raw_val and raw_val.endswith(')'):        # ポーズIDが括弧で囲まれている場合
             pose_id = raw_val.split('(')[-1].strip(')')     # ポーズIDを括弧で囲まれた部分に変換
         else:
@@ -443,25 +452,29 @@ class PoseDataTab:
         # Convert full-width numbers to half-width（全角数字を半角に変換）
         pose_id = pose_id.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
 
-        scale_val = normalize_text(self.app.pd_scale_var.get())
+        # scale_val = normalize_text(self.app.pd_scale_var.get())
+        scale_val = normalize_text(self.app.pd_scale_var)
         # Convert full-width numbers and period to half-width（全角数字とピリオドを半角に変換）
         scale_val = scale_val.translate(str.maketrans('０１２３４５６７８９．', '0123456789.'))
 
         # Check if both are empty（両方が空の場合） 
         if not pose_id and not scale_val:
-             CustomMessagebox.show_error(self.trans.get("error"), "Either Pose ID or Scale must be set.", self.app.root)
+             # CustomMessagebox.show_error(self.trans.get("error"), "Either Pose ID or Scale must be set.", self.app.root)
+             self.app.show_status_message(self.trans.get("msg_no_pose_scale"), "error") 
              return
 
         # PoseIDの検証
         if pose_id:
             if not pose_id.isdigit():   # ポーズIDが半角数字でない場合
-                 CustomMessagebox.show_error(self.trans.get("error"), "Pose ID must be half-width numbers only.", self.app.root)
+                 # CustomMessagebox.show_error(self.trans.get("error"), "Pose ID must be half-width numbers only.", self.app.root)
+                 self.app.show_status_message(self.trans.get("msg_err_pose_id."), "error") 
                  return
 
         # Scaleの検証
         if scale_val:
             if not all(c.isdigit() or c == '.' for c in scale_val):   # Scaleが半角数字とピリオドでない場合
-                 CustomMessagebox.show_error(self.trans.get("error"), "Scale must be half-width numbers and period only.", self.app.root)
+                 # CustomMessagebox.show_error(self.trans.get("error"), "Scale must be half-width numbers and period only.", self.app.root)
+                 self.app.show_status_message(self.trans.get("msg_err_scale."), "error") 
                  return
             
             try:
@@ -472,14 +485,16 @@ class PoseDataTab:
                     # Ensure valid float（有効な浮動小数点数を確保）
                     float(scale_val)
             except ValueError:
-                 CustomMessagebox.show_error(self.trans.get("error"), "Invalid Scale value.", self.app.root)
+                 # CustomMessagebox.show_error(self.trans.get("error"), "Invalid Scale value.", self.app.root)
+                 self.app.show_status_message(self.trans.get("msg_invalid_scale"), "error") 
                  return
 
         # セクション名を取得
         suffix = normalize_text(self.app.pd_section_suffix_var.get())
         # セクション名が存在しない場合
         if not suffix:
-            CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("req_suffix"), self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("req_suffix"), self.app.root)
+            self.app.show_status_message(self.trans.get("req_suffix"), "error") 
             return
         new_section = f"PoseScaleSetting_{suffix}"
 
@@ -496,18 +511,21 @@ class PoseDataTab:
             current_scale = self.app.current_pose_config.get(new_section, 'Scale', fallback='')
             
             if (current_chara != code or
-                current_match != normalize_comma_separated_string(self.app.pd_match_var.get()) or
-                current_exclude != normalize_comma_separated_string(self.app.pd_exclude_var.get()) or
+                current_match != match_val or
+                current_exclude != exclude_val or
+                # current_match != normalize_comma_separated_string(self.app.pd_match_var.get()) or
+                # current_exclude != normalize_comma_separated_string(self.app.pd_exclude_var.get()) or
                 current_pose_id != pose_id or
                 current_scale != scale_val):
                 has_changes = True
             
+            """ # Normalize時に自動更新のため無効化中
             # 生の値が正規化された値と異なるかどうかを確認する（UI更新をトリガーするため）
             if not has_changes:
                 if (self.app.pd_match_var.get() != normalize_comma_separated_string(self.app.pd_match_var.get()) or
                     self.app.pd_exclude_var.get() != normalize_comma_separated_string(self.app.pd_exclude_var.get())):
                     has_changes = True
-
+            """
                 
         if not has_changes:
             self.app.show_status_message(self.trans.get("msg_no_changes"), "warning")  # 変更事項がない場合の案内
@@ -526,7 +544,14 @@ class PoseDataTab:
         self.app.utils.save_config(self.app.current_pose_config, self.app.current_pose_file_path) 
 
         # 保存完了の案内
-        message = self.trans.get("msg_saved_data").format(suffix)
+        if self.app.selected_pose_data_section and self.app.selected_pose_data_section != new_section:
+            # セクション名変更の場合
+            old_suffix = self.app.selected_pose_data_section.replace("PoseScaleSetting_", "")
+            message = self.trans.get("msg_renamed_data").format(old=old_suffix, new=suffix)
+        else:
+            # 通常保存の場合
+            message = self.trans.get("msg_saved_data").format(suffix)        
+        # message = self.trans.get("msg_saved_data").format(suffix)
         self.app.show_status_message(message, "success")
 
         self.refresh_pose_data_list() # PoseScaleデータリストを更新

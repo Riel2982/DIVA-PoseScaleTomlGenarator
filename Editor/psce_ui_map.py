@@ -382,8 +382,10 @@ class PoseIDMapTab:
 
     # マップを保存
     def save_map_entry(self):
-        pose_id = normalize_text(self.app.map_id_var.get())
-        name = normalize_text(self.app.map_name_var.get())
+        pose_id = normalize_text(self.app.map_id_var)
+        name = normalize_text(self.app.map_name_var)
+        # pose_id = normalize_text(self.app.map_id_var.get())
+        # name = normalize_text(self.app.map_name_var.get())
 
         # Check for changes (変更があるか確認)
         has_changes = False
@@ -448,7 +450,15 @@ class PoseIDMapTab:
             self.app.utils.save_config(self.app.pose_id_map, self.app.utils.pose_id_map_path)
 
             # 保存完了の案内
-            self.app.show_status_message(self.trans.get("msg_saved_map", pose_id), "success")
+            if self.app.selected_map_key and self.app.selected_map_key != pose_id:
+                # ID変更の場合
+                message = self.trans.get("msg_renamed_map_id").format(old=self.app.selected_map_key, new=pose_id)
+                # message = self.trans.get("msg_renamed_map_id").format(self.app.selected_map_key, pose_id)
+            else:
+                # 通常保存の場合
+                message = self.trans.get("msg_saved_map").format(pose_id)            
+            self.app.show_status_message(message, "success")
+            # self.app.show_status_message(self.trans.get("msg_saved_map", pose_id), "success")
         
             self.refresh_pose_id_map_list()    # 画面更新
             

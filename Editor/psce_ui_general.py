@@ -132,22 +132,34 @@ class GeneralSettingsTab:
 
     # 保存
     def save_general_settings(self):
+        # 変数を渡して正規化＆画面更新
+        norm_path = normalize_text(self.app.farc_path_var)
+        norm_def_pose = normalize_text(self.app.def_pose_name_var)
+        
+        
+        # Check for changes (変更があるか確認)
+        has_changes = False
+        
+        """
         # UIから値を取得して正規化
         path_ui = normalize_text(self.app.farc_path_var.get())
         def_pose_name_ui = normalize_text(self.app.def_pose_name_var.get())
         
         # Check for changes (変更があるか確認)
         has_changes = False
-
+        """
+        
         # FarcPackPath
         current_path = self.app.main_config.get('FarcPack', 'FarcPackPath', fallback='')
-        if path_ui != current_path: has_changes = True
+        if norm_path != current_path: has_changes = True
+        # if path_ui != current_path: has_changes = True
         # GeneralSettings
         if str(self.app.save_parent_var.get()) != self.app.main_config.get('GeneralSettings', 'SaveInParentDirectory', fallback='False'): has_changes = True
         
         # DefaultPoseFileName (バリデーションは変更がある場合または保存時に実施されるが、ここでは単純比較)
         current_def_pose = self.app.main_config.get('GeneralSettings', 'DefaultPoseFileName', fallback='gm_module_pose_tbl')
-        if def_pose_name_ui != current_def_pose: has_changes = True
+        if norm_def_pose != current_def_pose: has_changes = True
+        # if def_pose_name_ui != current_def_pose: has_changes = True
         if str(self.app.use_module_name_contains_var.get()) != self.app.main_config.get('GeneralSettings', 'UseModuleNameContains', fallback='False'): has_changes = True
         if str(self.app.overwrite_existing_var.get()) != self.app.main_config.get('GeneralSettings', 'OverwriteExistingFiles', fallback='False'): has_changes = True
         
@@ -164,9 +176,16 @@ class GeneralSettingsTab:
 
         # 変更がない場合
         if not has_changes:
+             self.app.show_status_message(self.trans.get("msg_no_changes"), "warning")
+             return # 画面変数は既に normalize_text 内で更新済み       
+
+        """
+        # 変更がない場合
+        if not has_changes:
             self.app.show_status_message(self.trans.get("msg_no_changes")) # 変更事項がない場合の案内
             return
-        
+        """
+            
         # 変更が検出された場合のみスナップショットを取る
         self.app.history.snapshot('general')
 
@@ -180,12 +199,16 @@ class GeneralSettingsTab:
         # DefaultPoseFileName検証
         def_pose_name = normalize_text(self.app.def_pose_name_var.get())
         # 半角英数字と記号のみで構成されているか検証
-        if not all(c.isascii() and (c.isalnum() or c in ('_', '-', '.')) for c in def_pose_name):
-             CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("err_filename_chars"), self.app.root)
+        if not all(c.isascii() and (c.isalnum() or c in ('_', '-', '.')) for c in norm_def_pose):
+        # if not all(c.isascii() and (c.isalnum() or c in ('_', '-', '.')) for c in def_pose_name):
+             # CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("err_filename_chars"), self.app.root)
+             self.app.show_status_message(self.trans.get("err_filename_chars"), "error")
              return
 
         # DefaultPoseFileName保存
-        self.app.main_config['GeneralSettings']['DefaultPoseFileName'] = def_pose_name
+        self.app.main_config['GeneralSettings']['DefaultPoseFileName'] = norm_def_pose
+        # self.app.main_config['GeneralSettings']['DefaultPoseFileName'] = def_pose_name
+
         # UseModuleNameContains保存
         self.app.main_config['GeneralSettings']['UseModuleNameContains'] = str(self.app.use_module_name_contains_var.get())
         # OverwriteExistingFiles保存
@@ -228,7 +251,7 @@ class GeneralSettingsTab:
         
         # 設定反映（可能であれば即時反映）
         self.app.trans.load_language(lang_code)
-        # UIテキスト更新（再起動または複雑な再読み込みが必要な場合は、単純な保存で十分）
+        # UIテキスト更新はノーマライズ処理内で実行済
         
         self.app.show_status_message("General settings saved.")
 

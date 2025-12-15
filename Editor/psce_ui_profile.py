@@ -288,9 +288,13 @@ class ProfileTab:
 
     # TomlProfileの保存
     def save_profile(self):
-        suffix = normalize_text(self.app.prof_section_suffix_var.get())
+        # 変数を渡して正規化＆画面更新
+        suffix = normalize_text(self.app.prof_section_suffix_var)
+        # suffix = normalize_text(self.app.prof_section_suffix_var.get())
+
         if not suffix:
-            CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("req_suffix"), self.app.root)
+            # CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("req_suffix"), self.app.root)
+            self.app.show_status_message(self.trans.get("req_suffix"), "error") 
             return
         new_section = f"TomlProfile_{suffix}"
 
@@ -298,7 +302,8 @@ class ProfileTab:
         if self.app.selected_profile_section and self.app.selected_profile_section != new_section:
             # 新しいセクションが存在する場合
             if self.app.profile_config.has_section(new_section):
-                CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("duplicate_section_error", new_section), self.app.root)
+                # CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("duplicate_section_error", new_section), self.app.root)
+                self.app.show_status_message(self.trans.get("duplicate_section_error"), "error") 
                 return
             # 現在のセクションを新しいセクションに移動
             if self.app.profile_config.has_section(self.app.selected_profile_section):
@@ -324,15 +329,22 @@ class ProfileTab:
             self.app.profile_config.add_section(new_section)
         
         # UI から値を取得してカンマ正規化を適用）
+        match_val = normalize_comma_separated_string(self.app.prof_match_var)
+        exclude_val = normalize_comma_separated_string(self.app.prof_exclude_var)
+        pose_file_name = normalize_text(self.app.prof_pose_file_var)
+        config_file = self.app.prof_config_var.get()        
+        """
         match_val = normalize_comma_separated_string(self.app.prof_match_var.get())
         exclude_val = normalize_comma_separated_string(self.app.prof_exclude_var.get())
         config_file = self.app.prof_config_var.get()
         pose_file_name = normalize_text(self.app.prof_pose_file_var.get())
-        
+        """
+
         # 半角英数と特定の記号のみを許可する
         if not all(c.isascii() and (c.isalnum() or c in ('_', '-', '.')) for c in pose_file_name):
              # エラーメッセージ表示
-             CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("err_filename_chars"), self.app.root)
+             # CustomMessagebox.show_error(self.trans.get("error"), self.trans.get("err_filename_chars"), self.app.root)
+             self.app.show_status_message(self.trans.get("err_filename_chars"), "error") 
              return
 
         # Check for changes (変更があるか確認)
@@ -342,7 +354,8 @@ class ProfileTab:
             current_match = normalize_comma_separated_string(self.app.profile_config.get(new_section, 'ModuleMatch', fallback=''))
             current_exclude = normalize_comma_separated_string(self.app.profile_config.get(new_section, 'ModuleExclude', fallback=''))
             current_config = self.app.profile_config.get(new_section, 'ConfigFile', fallback='')
-            current_pose = self.app.profile_config.get(new_section, 'PoseFileName', fallback='')
+            current_pose = normalize_text(self.app.profile_config.get(new_section, 'PoseFileName', fallback=''))
+            # current_pose = self.app.profile_config.get(new_section, 'PoseFileName', fallback='')
             
             if (current_match != match_val or
                 current_exclude != exclude_val or
@@ -370,23 +383,41 @@ class ProfileTab:
         self.app.utils.save_config(self.app.profile_config, self.app.utils.profile_config_path)
     
         # 保存完了の案内
-        message = self.trans.get("msg_saved_profile").format(suffix)
-        self.app.show_status_message(message, "success")
+        if self.app.selected_profile_section and self.app.selected_profile_section != new_section:
+            # セクション名変更の場合
+            old_suffix = self.app.selected_profile_section.replace("TomlProfile_", "")
+            message = self.trans.get("msg_renamed_profile").format(old=old_suffix, new=suffix)
+            # message = self.trans.get("msg_renamed_profile").format(old_suffix, suffix)
+        else:
+            # 通常保存の場合
+            message = self.trans.get("msg_saved_profile").format(suffix)
         
+        # message = self.trans.get("msg_saved_profile").format(suffix)
+        self.app.show_status_message(message, "success")
+                
         # 補正後の画面に更新
-        self.refresh_profile_list()
-        self.app.select_listbox_item(self.app.profile_listbox, new_section)
+        # self.refresh_profile_list()
+        # self.app.select_listbox_item(self.app.profile_listbox, new_section)
+        
+        # リスト構成が変わる場合（セクション名変更）のみリフレッシュ
+        if self.app.selected_profile_section != new_section:
+            self.refresh_profile_list()
+            self.app.select_listbox_item(self.app.profile_listbox, new_section)
+        else:
+            self.app.selected_profile_section = new_section
 
-    # Jump to pose editor（PoseScaleエディタに移動する）
+
+    # PoseScaleエディタに移動
     def jump_to_pose_editor(self):
         config_base = self.app.prof_config_var.get()
         if not config_base: return
         filename = f"{config_base}.ini"
         filepath = os.path.join(self.app.utils.pose_data_dir, filename)
         
-        # Check if file exists（ファイルが存在するか確認する）
+        # ファイルが存在するか確認
         if not os.path.exists(filepath):
             if CustomMessagebox.ask_yes_no(self.trans.get("file_not_found"), self.trans.get("create_it", filename), self.app.root):
+            # if messagebox.askyesno(self.trans.get("create_it"), self.trans.get("file_not_found")):
                 try:
                     with open(filepath, 'w', encoding='utf-8-sig') as f:
                         f.write("")
@@ -396,7 +427,7 @@ class ProfileTab:
             else:
                 return
 
-        self.app.notebook.select(2) # Select pose editor（PoseScaleエディタを選択する）
-        self.app.refresh_pose_files() # Refresh pose files（PoseScaleファイルを更新する）
-        self.app.pose_file_combo.set(filename) # Set pose file（PoseScaleファイルを設定する）
-        self.app.load_pose_data_file() # Load pose data file（PoseScaleデータファイルを読み込む）
+        self.app.notebook.select(2) # PoseScaleエディタを選択する
+        self.app.refresh_pose_files() # PoseScaleファイルを更新する
+        self.app.pose_file_combo.set(filename) # PoseScaleファイルを設定する
+        self.app.load_pose_data_file() # PoseScaleデータファイルを読み込む

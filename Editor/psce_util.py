@@ -291,13 +291,83 @@ class CustomMessagebox:
         return result['value']
 
 
-def normalize_comma_separated_string(s):
+def normalize_comma_separated_string(text_or_var):
     """
-    カンマ区切り文字列を正規化する
+    カンマ区切り文字列（または変数）を正規化する。
     - 全角カンマ・読点を半角に変換
     - 前後の空白を削除
     - 空の要素を削除
+    - カンマ+スペース区切りで再結合
+    StringVarが渡された場合、値を正規化してセットし直す（画面更新）
     """
+    # StringVar対応
+    target = text_or_var
+    is_var = hasattr(text_or_var, 'get') and hasattr(text_or_var, 'set')
+    
+    if is_var:
+        target = text_or_var.get()
+        
+    if not isinstance(target, str):
+        target = str(target)
+    
+    if not target:
+        normalized = ""
+    else:
+        # --- 既存ロジックの適用 ---
+        # 全角カンマと読点を半角に
+        s = target.replace('，', ',').replace('、', ',')
+        
+        # 分割して空白削除
+        parts = [p.strip() for p in s.split(',')]
+        
+        # 空の要素を削除して再結合（カンマ+スペース形式）
+        normalized = ", ".join([p for p in parts if p])
+        # ------------------------
+    
+    # 画面更新
+    if is_var and target != normalized:
+        text_or_var.set(normalized)
+        
+    return normalized
+
+
+def normalize_text(text_or_var):
+    """
+    テキスト（または変数）を正規化する
+    - 前後の空白（半角・全角）を削除
+    StringVarが渡された場合、値を正規化してセットし直す（画面更新）
+    """
+    # StringVar対応
+    target = text_or_var
+    is_var = hasattr(text_or_var, 'get') and hasattr(text_or_var, 'set')
+    
+    if is_var:
+        target = text_or_var.get()
+    
+    if not isinstance(target, str):
+        target = str(target)
+        
+    if not target:
+        normalized = ""
+    else:
+        # Pythonのstrip()は全角スペースも削除する
+        normalized = target.strip()
+    
+    # 画面更新
+    if is_var and target != normalized:
+        text_or_var.set(normalized)
+        
+    return normalized
+
+
+"""
+# 半角補正
+def normalize_comma_separated_string(s):
+    # カンマ区切り文字列を正規化する
+    # - 全角カンマ・読点を半角に変換
+    # - 前後の空白を削除
+    # - 空の要素を削除
+
     if not s:
         return ""
     
@@ -310,12 +380,10 @@ def normalize_comma_separated_string(s):
     # 空の要素を削除して再結合（カンマ+スペース形式）
     return ", ".join([p for p in parts if p])
 
+# 末尾のスペースを削除
 def normalize_text(text):
-    """
-    テキストを正規化する
-    - 前後の空白（半角・全角）を削除
-    """
     if not text:
         return ""
     # Pythonのstrip()は全角スペースも削除する
     return text.strip()
+"""
