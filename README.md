@@ -120,7 +120,16 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
 - アプリアイコン画像を変更［Editor］
 - 有効なPoseScale設定が存在しない場合は設定エディタを起動するように変更［Generator］
 
-
+### beta4 (2025-12-16)
+- Generator実行時のコンソール画面からデバッグ用のログ表示を削除［Generator］
+    - エラーメッセージは引き続きコンソール画面に出力されます。
+- GUI下部にメッセージバーを設置［Editor］
+    - 保存完了・保存キャンセル・新規作成・複製・削除などの時にメッセージを表示するように変更
+    - 今までポップアップで表示されていたメッセージの一部もメッセージバー表示に変更
+- 'Pose ID Map'タブで新規追加・複製時に画面更新が正しく行われない不具合を修正［Editor］
+- 'Pose Scale Data'タブでSettingを新規追加した時、デフォルトのキャラ枠を'MIKU'で作成するように変更［Editor］
+- 'Pose Scale Data'タブのTargetファイル欄で文字入力ができないように修正［Editor］
+- 'PoseID Map'で不使用画像を削除できない不具合を修正［Editor］
+- 
 ### 既知の不具合
 - 画像プレビューの削除動作はRedoで再現できない（それ以外の操作はRedoで再現できる）［Editor］
-- 'Pose ID Map'タブで新規追加・複製時に画面更新が正しく行われない（beta4にて修正予定）［Editor］
