@@ -1,6 +1,9 @@
 import configparser
 import os
 import tkinter as tk
+import sys
+import subprocess
+import logging
 
 class KeyManager:
     """
@@ -18,8 +21,8 @@ class KeyManager:
         # 修飾キー(Ctrl, Alt, Shift)を組み合わせたり、ファンクションキーを使用することを推奨。
         self.default_map = {
             'SaveCurrentTab': '<Control-s>',           # 現在のタブの内容を保存
-            'SaveAndExit': '<Control-q>',               # 保存して終了
-            'ExitNoSave': '<Escape>',                    # 保存せずに終了
+            'SaveAndExit': '<Control-Alt-F4>',               # 保存して終了
+            'ExitNoSave': '<Alt-F4>',                    # 保存せずに終了 ※設定していなくてもAlt+F4でアプリはWindwsが閉じてくれる
             'RestartNoSave': '<Control-r>',             # 保存せずに再起動
             'SaveAndRestart': '<Control-Shift-R>',      # 保存して再起動
             'Undo': '<Control-Shift-Z>',                # 元に戻す (HistoryManager)
@@ -75,7 +78,7 @@ class KeyManager:
                 if changed:
                     self.save_key_map()
             except Exception as e:
-                print(f"Failed to load KeyMap.ini: {e}")
+                logging.error(f"Failed to load KeyMap.ini: {e}")
                 self.create_default_key_map()
 
     def create_default_key_map(self):
@@ -93,13 +96,13 @@ class KeyManager:
             with open(self.config_path, 'w', encoding='utf-8-sig') as f:
                 self.key_map.write(f)
         except Exception as e:
-            print(f"Failed to save KeyMap.ini: {e}")
+            logging.error(f"Failed to save KeyMap.ini: {e}")
 
     def apply_shortcuts(self, root):
         # ルートウィンドウにショートカットキーをバインド
-        # 既存のバインドを上書きして再設定。
-        # 古いバインドを追跡して unbind するロジックではなく、シンプルに設定されたキーに対して bind を行う。
+        # 既存のバインドを上書きして再設定（古いバインドを追跡して unbind するロジックではなく、シンプルに設定されたキーに対して bind を行う
         
+        # キー設定がない場合は何もしない
         if not self.key_map.has_section('Shortcuts'):
             return
 
@@ -110,7 +113,7 @@ class KeyManager:
                 try:
                     root.bind(key, lambda event, f=func: f(event))
                 except tk.TclError:
-                    print(f"Invalid key format: {key}")
+                    logging.error(f"Invalid key format: {key}")
 
     # --- Actions ---
 
@@ -158,7 +161,7 @@ class KeyManager:
             self.action_save_current_tab()
             self.app.save_geometry()
         except Exception as e:
-            print(f"Error saving before restart: {e}")
+            logging.error(f"Error saving before restart: {e}")
         self.restart_app()
 
     def action_undo(self, event=None):
@@ -181,26 +184,68 @@ class KeyManager:
             self.app.show_debug_var.set(new_value)
             self.app.general_tab.toggle_debug_settings()
 
+
+    def restart_app(self):
+            """アプリケーションを再起動する内部メソッド（直接起動・デバッグ版）"""
+            try:
+                # 1. 実行ファイルのパス
+                exe_path = sys.executable
+                # 2. 環境変数のクリーンアップ
+                # PyInstallerの環境変数が残っていると再起動後のアプリがクラッシュするため除去
+                env = {}
+                ignore_keys = {'TCL_LIBRARY', 'TK_LIBRARY', '_MEIPASS2'}
+                for k, v in os.environ.items():
+                    if k.upper() not in ignore_keys:
+                        env[k] = v
+                # 3. 新しいプロセスを起動
+                # creationflags=0x00000010 (CREATE_NEW_CONSOLE) で別コンソールとして分離
+                if getattr(sys, 'frozen', False):
+                    # EXEの場合
+                    subprocess.Popen([exe_path], env=env, creationflags=0x00000010)
+                else:
+                    # 開発環境の場合
+                    subprocess.Popen([exe_path] + sys.argv, env=env, creationflags=0x00000010)
+            except Exception as e:
+                # エラーが起きたらダイアログで表示
+                import traceback
+                err_msg = f"再起動に失敗しました:\n{e}\n{traceback.format_exc()}"
+                tk.messagebox.showerror("Restart Error", err_msg)
+                logging.error(err_msg)
+                return  # 起動失敗時は終了しない
+            # 4. 現在のプロセスを終了
+            logging.info("Restarting... closing current process.")
+            self.app.perform_cleanup()
+            self.app.root.destroy()
+            sys.exit(0)
+
+if False:        
     def restart_app(self):
         """アプリケーションを再起動する内部メソッド"""
-        import sys
-        import subprocess
-        
-    def restart_app(self):
-        """アプリケーションを再起動する内部メソッド"""
-        import sys
-        import subprocess
-        
+
         # 現在のウィンドウを閉じる（リソース解放のため）
         # self.app.root.destroy() # ここでdestroyすると後続の処理が動かない可能性があるため、sys.exit直前に任せるか、非表示にする
         
+        # 環境変数の準備 (PyInstaller対策)
+        # 古いTCL/TKライブラリパスを削除しないと、新しいプロセスが見つけられずにエラーになる
+        env = os.environ.copy()
+        # 削除すべき環境変数リスト
+        # keys_to_remove = ['TCL_LIBRARY', 'TK_LIBRARY', '_MEIPASS2']
+        keys_to_remove = {'TCL_LIBRARY', 'TK_LIBRARY', '_MEIPASS2'} # 大文字小文字を無視して削除
+        
+        # 辞書のキーをリスト化してループ（削除中のエラーを防止）
+        for key in keys_to_remove:
+            if key in env:
+                del env[key]        
+                
         # 新しいインスタンスを起動
         if getattr(sys, 'frozen', False):
             # EXEの場合
             try:
-                subprocess.Popen([sys.executable], creationflags=subprocess.CREATE_NEW_CONSOLE)
+                # subprocess.Popen([sys.executable], creationflags=subprocess.CREATE_NEW_CONSOLE)
+                # env引数を追加
+                subprocess.Popen([sys.executable], creationflags=subprocess.CREATE_NEW_CONSOLE, env=env)
             except Exception as e:
-                print(f"Failed to restart exe: {e}")
+                logging.error(f"Failed to restart exe: {e}")
                 # フォールバック
                 try:
                     os.startfile(sys.executable)
@@ -209,9 +254,11 @@ class KeyManager:
         else:
             # 開発モードの場合
             try:
-                subprocess.Popen([sys.executable] + sys.argv, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                # subprocess.Popen([sys.executable] + sys.argv, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                subprocess.Popen([sys.executable] + sys.argv, creationflags=subprocess.CREATE_NEW_CONSOLE, env=env)                
             except:
-                 subprocess.Popen([sys.executable] + sys.argv)
+                # subprocess.Popen([sys.executable] + sys.argv)
+                subprocess.Popen([sys.executable] + sys.argv, env=env) 
 
         # 現在のプロセスを終了
         self.app.perform_cleanup()

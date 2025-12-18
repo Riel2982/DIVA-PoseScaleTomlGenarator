@@ -1,10 +1,15 @@
 import os
 import sys
+import time
 import configparser
 import shutil
 import ctypes
+import tkinter as tk
+from tkinter import ttk
 import logging
 from logging.handlers import RotatingFileHandler
+
+
 
 def make_hidden_folder(path):
     """
@@ -20,7 +25,7 @@ def make_hidden_folder(path):
             FILE_ATTRIBUTE_HIDDEN = 0x02
             ctypes.windll.kernel32.SetFileAttributesW(path, FILE_ATTRIBUTE_HIDDEN)
         except Exception:
-            print("Tempフォルダに隠し属性を設定できませんでした")
+            logging.warning("Tempフォルダに隠し属性を設定できませんでした")
             # 失敗しても処理続行（隠し属性が必須ではないため）
             pass
 
@@ -135,12 +140,12 @@ class ConfigUtility:
 
         # Profile Config（プロファイル設定）
         if not os.path.exists(self.profile_config_path):
-            with open(self.profile_config_path, 'w', encoding='utf-8') as f:
+            with open(self.profile_config_path, 'w', encoding='utf-8-sig') as f:
                 f.write("")
 
         # Pose ID Map（ポーズIDマップ）
         if not os.path.exists(self.pose_id_map_path):
-            with open(self.pose_id_map_path, 'w', encoding='utf-8') as f:
+            with open(self.pose_id_map_path, 'w', encoding='utf-8-sig') as f:
                 f.write("[PoseIDs]\n")
 
         # Default Pose Data（デフォルトのポーズデータ）
@@ -176,7 +181,7 @@ class ConfigUtility:
             with open(vbs_path, 'w', encoding='cp932') as f:
                 f.write(content)
         except Exception as e:
-            print(f"Failed to create restart.vbs: {e}")
+            logging.error(f"Failed to create restart.vbs: {e}")
 
     # Configファイルの読み込み
     def load_config(self, path):
@@ -189,14 +194,14 @@ class ConfigUtility:
                     config.read_file(f)
             except UnicodeDecodeError: # UnicodeDecodeErrorを取得する
                 try:
-                    with open(path, 'r', encoding='utf-8') as f:
+                    with open(path, 'r', encoding='utf-8-sig') as f:
                         config.read_file(f)
                 except UnicodeDecodeError: # UnicodeDecodeErrorを取得する
                     with open(path, 'r', encoding='cp932') as f:
                         config.read_file(f)
             except OSError as e:
                 # ファイルがロックされているか、読み取れない場合、再起動または処理を停止する（空のconfigを返すと、データが失われることを危険とする）
-                print(f"Error loading config {path}: {e}")
+                logging.error(f"Error loading config {path}: {e}")
                 # 呼び出し元はConfigParserを期待するため、失敗を示すためにNoneを返す（空のconfigを返すと、アプリケーションは既定値でファイルを上書き）
                 # データを失うことよりもクラッシュまたはエラーを表示する方が良いので、Noneを返して呼び出し元を処理する（psce_gui.pyはconfigオブジェクトを期待するのでpsce_gui.pyを更新してNoneまたは、raiseを返すことを検討する）
                 return None
@@ -206,13 +211,12 @@ class ConfigUtility:
     def save_config(self, config, path):
         config.optionxform = str
         
-        # Retry logic for file locking (Antivirus, etc.)（ファイルがロックされている場合の再試行ロジック）
-        import time
+        # ファイルがロックされている場合の再試行ロジック）
         max_retries = 3
         for i in range(max_retries):
             try:
-                # Direct write to avoid "Ransomware" heuristics (Rename/Replace patterns often trigger it）（直接書き込みを避けるために「Ransomware」のヒューリスティクスを回避する）
-                # This is less atomic (risk of corruption on crash), but necessary if AV blocks rename.（原子的ではない（クラッシュ時に破損のリスクが高い）、しかしAVがリネームをブロックする場合、必要不可欠）
+                # 直接書き込みを避けるために「Ransomware」のヒューリスティクスを回避する
+                # 原子的ではない（クラッシュ時に破損のリスクが高い）、しかしAVがリネームをブロックする場合、必要不可欠
                 with open(path, 'w', encoding='utf-8-sig') as f:
                     config.write(f)
                 return True
@@ -221,7 +225,7 @@ class ConfigUtility:
                     time.sleep(0.2) # Wait a bit
                     continue
                 else:
-                    print(f"Failed to save config {path}: {e}")
+                    logging.error(f"Failed to save config {path}: {e}")
                     raise e
         return False
 
@@ -250,7 +254,7 @@ class ConfigUtility:
         # ファイル名を設定
         if target_filename:
             filename = target_filename
-            # Ensure extension matches source or is valid（拡張子が一致するか、有効な拡張子であるかを確認する）
+            # 拡張子が一致するか、有効な拡張子であるかを確認する
             _, ext = os.path.splitext(source_path)
             if not filename.lower().endswith(ext.lower()):
                  filename += ext
@@ -279,8 +283,6 @@ class ConfigUtility:
                 return False
         return False
 
-import tkinter as tk
-from tkinter import ttk
 
 class CustomMessagebox:
     @staticmethod
@@ -289,6 +291,22 @@ class CustomMessagebox:
         width = win.winfo_width()
         height = win.winfo_height()
         
+        # マウスカーソル位置を取得
+        ptr_x, ptr_y = win.winfo_pointerxy()
+        logging.info(f"DEBUG: Mouse Ptr: ({ptr_x}, {ptr_y})") 
+        
+        # マウス位置の少し右下に表示
+        x = ptr_x - (width // 2)
+        y = ptr_y + 20
+        
+        # 画面外にはみ出さないように調整（簡易版）
+        screen_width = win.winfo_screenwidth()
+        screen_height = win.winfo_screenheight()
+        
+
+        win.geometry(f'+{x}+{y}')
+
+        """
         if parent:
             x = parent.winfo_rootx() + (parent.winfo_width() // 2) - (width // 2)
             y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (height // 2)
@@ -299,7 +317,9 @@ class CustomMessagebox:
             y = (screen_height // 2) - (height // 2)
             
         win.geometry(f'+{x}+{y}')
+        """
 
+        
     @staticmethod
     def show_info(title, message, parent=None):
         dialog = tk.Toplevel(parent)
@@ -469,3 +489,72 @@ def normalize_text(text):
     # Pythonのstrip()は全角スペースも削除する
     return text.strip()
 """
+
+
+
+def get_app_version():
+    """EXEのバージョンリソースを取得する（開発環境はversion.txt）"""
+    
+    # 1. 凍結アプリ(EXE)の場合: ctypesで自分自身のバージョンリソースを読む
+    if getattr(sys, 'frozen', False):
+        try:
+            filename = sys.executable
+            size = ctypes.windll.version.GetFileVersionInfoSizeW(filename, None)
+            if size > 0:
+                res = ctypes.create_string_buffer(size)
+                ctypes.windll.version.GetFileVersionInfoW(filename, None, size, res)
+                r = ctypes.c_void_p()
+                l = ctypes.c_uint()
+                
+                # VS_FIXEDFILEINFO構造体を取得
+                # ルートブロック "\" を指定すると固定情報が取れる
+                if ctypes.windll.version.VerQueryValueW(res, "\\", ctypes.byref(r), ctypes.byref(l)):
+                    class VS_FIXEDFILEINFO(ctypes.Structure):
+                        _fields_ = [
+                            ("dwSignature", ctypes.c_long),
+                            ("dwStrucVersion", ctypes.c_long),
+                            ("dwFileVersionMS", ctypes.c_long),
+                            ("dwFileVersionLS", ctypes.c_long),
+                            ("dwProductVersionMS", ctypes.c_long),
+                            ("dwProductVersionLS", ctypes.c_long),
+                            ("dwFileFlagsMask", ctypes.c_long),
+                            ("dwFileFlags", ctypes.c_long),
+                            ("dwFileOS", ctypes.c_long),
+                            ("dwFileType", ctypes.c_long),
+                            ("dwFileSubtype", ctypes.c_long),
+                            ("dwFileDateMS", ctypes.c_long),
+                            ("dwFileDateLS", ctypes.c_long),
+                        ]
+                    
+                    # メモリキャスト
+                    fi = ctypes.cast(r, ctypes.POINTER(VS_FIXEDFILEINFO)).contents
+                    # バージョン番号の抽出 (MSの上位・下位, LSの上位・下位)
+                    major = fi.dwFileVersionMS >> 16
+                    minor = fi.dwFileVersionMS & 0xFFFF
+                    build = fi.dwFileVersionLS >> 16
+                    revision = fi.dwFileVersionLS & 0xFFFF
+                    
+                    # "v1.0.0" 形式に整形（revisionが0なら省略などの調整はお好みで）
+                    if revision > 0:
+                        return f"v{major}.{minor}.{build}.{revision}"
+                    else:
+                        return f"v{major}.{minor}.{build}"
+                        
+        except Exception as e:
+            logging.error(f"Failed to read version resource: {e}")
+            pass
+
+    # 2. 開発環境または取得失敗時: version.txt を読む
+    try:
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        version_path = os.path.join(app_dir, 'version.txt')
+        if os.path.exists(version_path):
+            with open(version_path, 'r', encoding='utf-8') as f:
+                ver = f.read().strip()
+                return f"v{ver}" if not ver.startswith("v") else ver
+    except:
+        pass
+
+    return "v0.0.0-dev"
+
+VERSION = get_app_version()

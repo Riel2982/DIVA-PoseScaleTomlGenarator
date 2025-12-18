@@ -17,6 +17,8 @@ class GeneralSettingsTab:
 
     # Create Widgets（ウィジェット作成）
     def create_widgets(self):
+
+
         # FarcPack（FarcPack設定）
         frame_farc = ttk.LabelFrame(self.tab, text=self.trans.get("farc_settings"), padding=10)
         frame_farc.pack(fill='x', padx=10, pady=5)

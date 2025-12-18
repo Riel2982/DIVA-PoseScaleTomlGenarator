@@ -2,6 +2,7 @@ import os
 import logging
 import subprocess
 import sys
+import traceback
 import pstg_config
 import pstg_farc
 import pstg_extract
@@ -43,27 +44,35 @@ def launch_editor():
              # CREATE_NEW_PROCESS_GROUP = 0x00000200（新しいプロセスグループ）
              subprocess.Popen([editor_path], creationflags=0x00000008 | 0x00000200)
     else:
-        print(f"エラー: 設定エディタが見つかりません: {editor_path}")
+        print(f"Error: The settings editor cannot be found: {editor_path}")
+        logging.error(f"Error: 設定エディタが見つかりません: {editor_path}")
         # input("Enterキーを押して終了してください...")
         if has_console():  # コンソール使用時
-            input("Enterキーを押して終了してください...")
+            input("Press Enter to exit...")
 
 # メイン処理
 def main():
+    # バージョン情報をコンソールに表示
+    from pstg_util import VERSION
+    print(f"Pose Scale Toml Generator {VERSION}")
+    print("=" * 50)
+
     try:
         # 1. 設定の読み込み
         app_config = pstg_config.load_app_config()
         
         # Config.iniが存在しない、または読み込み失敗した場合
         if not app_config:
-            print("設定ファイルが見つかりません。")
+            print("The configuration file cannot be found.")
+            logging.error("設定ファイルが見つかりません。")
             launch_editor()
             return
 
         # FarcPackPathの検証
         farc_pack_path = app_config.get('FarcPackPath', '')
         if not farc_pack_path or not os.path.exists(farc_pack_path) or not os.path.basename(farc_pack_path).lower() == 'farcpack.exe':
-            print("有効なFarcPackパスが設定されていません。")
+            print("Invalid FarcPack path is set.")
+            logging.error("有効なFarcPackパスが設定されていません。")
             launch_editor()
             return
 
@@ -183,12 +192,12 @@ def main():
 
     except Exception as e:
         logging.error(f"予期せぬエラーが発生しました: {e}")
-        print(f"予期せぬエラーが発生しました: {e}")
-        import traceback
+        print(f"An unexpected error occurred: {e}")
+        logging.error(traceback.format_exc())
         traceback.print_exc()
         # input("Enterキーを押して終了してください...")
         if has_console():   # コンソール使用時
-            input("Enterキーを押して終了してください...")  
+            input("Press Enter to exit...")
     
     finally:
         # 10. クリーンアップ (デバッグ設定に基づく)

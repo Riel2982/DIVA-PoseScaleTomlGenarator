@@ -4,7 +4,10 @@ a = Analysis(
     ['psce_main.py'],
     pathex=[],
     binaries=[],
-    datas=[('PoseScaleConfigEditor.ico', '.')],
+    datas=[
+        ('PoseScaleConfigEditor.ico', '.'),
+        ('icons', 'icons')
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

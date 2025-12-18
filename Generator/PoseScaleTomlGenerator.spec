@@ -4,7 +4,7 @@ a = Analysis(
     ['pstg_main.py'],
     pathex=[],
     binaries=[],
-    datas=[('PoseScaleTomlGenarator.ico', '.')],
+    datas=[('PoseScaleTomlGenerator.ico', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -34,5 +34,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['PoseScaleTomlGenarator.ico'],
+    icon=['PoseScaleTomlGenerator.ico'],
 )

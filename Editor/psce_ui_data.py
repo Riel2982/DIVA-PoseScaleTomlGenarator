@@ -24,14 +24,12 @@ class PoseDataTab:
         self.app.pose_file_combo.pack(side='left', padx=5)
         self.app.pose_file_combo.bind('<<ComboboxSelected>>', self.load_pose_data_file)
         
-        # Left side buttons（左側のボタン配置）
-        # Reordered Buttons: Create New -> Duplicate -> Delete（作成 -> 重複 -> 削除）
+        # 左側のボタン配置（リネームのみ）※左から右に配置
         ttk.Button(frame_top, text=self.trans.get("rename_file"), command=self.rename_current_pose_file).pack(side='left', padx=2)  # リネーム
-        # Refresh is hidden.（再読み込みは非表示）
+        # 再読み込みは非表示
         # ttk.Button(frame_top, text=self.trans.get("refresh"), command=self.refresh_pose_files).pack(side='left')
 
-        # Right side buttons (Order: Create, Duplicate, Delete)（右側のボタン配置（作成 -> 重複 -> 削除））
-        # Desired: [Create] [Duplicate] [Delete] (Left to Right on the right side)（左から右に配置）
+        # 右側のボタン配置（作成 -> 重複 -> 削除）※左から右に配置
         ttk.Button(frame_top, text=self.trans.get("delete_file"), command=self.delete_current_pose_file).pack(side='right', padx=2)  # 削除
         ttk.Button(frame_top, text=self.trans.get("duplicate_file"), command=self.duplicate_current_pose_file).pack(side='right', padx=2)  # 重複
         ttk.Button(frame_top, text=self.trans.get("create_new_file"), command=self.create_new_pose_file).pack(side='right', padx=2)  # 作成
@@ -85,15 +83,15 @@ class PoseDataTab:
         ttk.Label(frame_right, text=self.trans.get("chara")).pack(anchor='w') # キャラクター枠
         self.app.pd_chara_var = tk.StringVar()
         
-        # Display Order (User Preference)（表示順序）
+        # キャラ枠表示順序
         self.chara_display_order = ["MIKU", "RIN", "LEN", "LUKA", "KAITO", "MEIKO", "NERU", "HAKU", "SAKINE", "TETO"]
-        # Map Display Name -> Internal Code（表示名 -> 内部コード）
+        # キャラ枠表示名 -> 内部コード
         self.chara_map = {
             "MIKU": "MIK", "RIN": "RIN", "LEN": "LEN", "LUKA": "LUK",
             "KAITO": "KAI", "MEIKO": "MEI", "NERU": "NER", "HAKU": "HAK",
             "SAKINE": "SAK", "TETO": "TET"
         }
-        # Map Internal Code -> Display Name（内部コード -> 表示名）
+        # キャラ枠内部コード -> 表示名
         self.chara_reverse_map = {v: k for k, v in self.chara_map.items()}
         
         # キャラクター枠
@@ -130,7 +128,7 @@ class PoseDataTab:
         # 更新（保存）
         ttk.Button(frame_right, text=self.trans.get("update_save_file"), command=self.save_pose_data).pack(pady=10)
 
-        self.refresh_pose_files()  # This will call refresh_pose_data_list with select_first=True（最初のファイルを選択）
+        self.refresh_pose_files()  # 最初のファイルを選択
 
     # Pose IDコンボボックス更新 
     def refresh_pose_id_combo(self, event=None):
@@ -191,7 +189,7 @@ class PoseDataTab:
                 idx = items.index(last_selection)
                 self.app.pose_data_listbox.selection_set(idx)
                 self.app.pose_data_listbox.activate(idx)
-                # Ensure UI is updated
+                # UI更新
                 self.on_pose_data_select(None)
                 restored = True
             except ValueError:
@@ -200,7 +198,7 @@ class PoseDataTab:
         # Select first item only on initial load if restoration failed
         if select_first and not restored and self.app.pose_data_listbox.size() > 0:
             self.app.pose_data_listbox.selection_set(0)
-            # Directly call handler to ensure UI is updated
+            # UI更新
             self.on_pose_data_select(None)
 
     # ポーズデータリストの選択
@@ -713,7 +711,7 @@ class PoseDataTab:
             self.app.current_pose_file_path = new_filepath
             self.refresh_pose_files()
             self.app.pose_file_combo.set(new_filename)
-            # Reload data to ensure UI is consistent（UIを一致させるためにデータを再読み込み）
+            # UIを一致させるためにデータを再読み込み
             self.load_pose_data_file()
             # 成功メッセージ
             self.app.show_status_message(self.trans.get("msg_renamed_file", new_filename), "success")

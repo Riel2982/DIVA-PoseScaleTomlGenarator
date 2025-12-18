@@ -188,12 +188,12 @@ class PoseIDMapTab:
                     self.app.history.register_file_move('map', self.pending_trash_image, trash_path)
                     self.pending_trash_image = None
                 except Exception as e:
-                    print(f"Failed to move pending trash image: {e}")
+                    logging.error(f"Failed to move pending trash image: {e}")
 
             pose_id = self.app.selected_map_key
             pose_name = self.app.map_name_var.get()
             
-            # Sanitize name for filename（ファイル名を正規化）
+            # ファイル名を正規化
             safe_name = "".join(c for c in pose_name if c.isalnum() or c in (' ', '_', '-')).strip()
             _, ext = os.path.splitext(path)
             new_filename = f"{pose_id}_{safe_name}{ext}"
@@ -440,14 +440,14 @@ class PoseIDMapTab:
                         shutil.move(self.pending_trash_image, trash_path)
                         self.app.history.register_file_move('map', self.pending_trash_image, trash_path)
                 except Exception as e:
-                    print(f"Failed to move pending trash image: {e}")
+                    logging.error(f"Failed to move pending trash image: {e}")
                 
                 self.pending_trash_image = None
 
             # 画像ファイルを再命名する
             if self.app.selected_map_key:
                 old_image_path = self.app.utils.find_image_for_pose(self.app.selected_map_key)
-                if old_image_path: # Don't rename if pending delete (already moved) or not found
+                if old_image_path: # 削除待ち（既に移動済み）または見つからない場合は名前を変更しない
                     old_filename = os.path.basename(old_image_path)
                     _, ext = os.path.splitext(old_filename)
                     
@@ -483,6 +483,7 @@ class PoseIDMapTab:
         except Exception as e:
             messagebox.showerror(self.trans.get("error"), self.trans.get("failed_save", e))
 
+    # 選択を再設定
     def select_map_item_by_id(self, pose_id):
         items = self.app.map_listbox.get(0, 'end')
         for i, item in enumerate(items):

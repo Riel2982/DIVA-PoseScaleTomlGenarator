@@ -6,9 +6,11 @@ import io
 import configparser
 import sys
 import shutil
+import ctypes
 import logging
 import traceback
-from psce_util import ConfigUtility
+import threading
+from psce_util import ConfigUtility, VERSION
 from psce_translation import TranslationManager
 from psce_history import HistoryManager
 from psce_ui_general import GeneralSettingsTab
@@ -17,9 +19,12 @@ from psce_ui_data import PoseDataTab
 from psce_ui_map import PoseIDMapTab
 from psce_key import KeyManager
 from psce_ui_key import KeyMapTab
+from psce_update import load_status, perform_update_gui, check_update
+
 
 class ConfigEditorApp:
     def __init__(self, root):
+ 
         # 初期化コード
         self.root = root
         self.utils = ConfigUtility()
@@ -51,12 +56,13 @@ class ConfigEditorApp:
         lang = self.main_config.get('GeneralSettings', 'Language', fallback='en')
         self.trans.set_language(lang)
         
-        self.root.title(self.trans.get("window_title"))
+        # self.root.title(self.trans.get("window_title"))   # GUIのウィンドウタイトルを翻訳対応する場合
+        self.root.title(f"Pose Scale Config Editor - {VERSION}")
         
         # Set Icon（アイコンの設定）
         icon_path = None
         if getattr(sys, 'frozen', False):
-            # If frozen, look in the temp folder where PyInstaller extracts files（凍結されている場合、PyInstallerがファイルを抽出する一時フォルダを検索する）
+            # 凍結されている場合、PyInstallerがファイルを抽出する一時フォルダを検索する
             icon_path = os.path.join(sys._MEIPASS, 'PoseScaleConfigEditor.ico')
         
         # Fallback or dev mode（フォールバックまたは開発モード）
@@ -69,7 +75,7 @@ class ConfigEditorApp:
             except Exception as e:
                 print(f"Failed to set icon: {e}")
         
-        # Restore geometry（ウィンドウの復元）
+        # ウィンドウの復元
         geometry = self.main_config.get('GeneralSettings', 'WindowGeometry', fallback="1100x800")
         self.root.geometry(geometry)
 
@@ -131,16 +137,94 @@ class ConfigEditorApp:
         
         self.btn_redo = ttk.Button(toolbar, text=self.trans.get("redo"), command=self.redo, state='disabled')   # Redoボタン
         self.btn_redo.pack(side='left', padx=2)
-
-        # タブの再読み込みボタン（右端）- 初期状態では非表示（GeneralSettingsTabで制御）
-        self.refresh_btn = ttk.Button(toolbar, text=self.trans.get("refresh_tab"), command=self.refresh_current_tab)
         
+        # スペーサー
+        ttk.Frame(toolbar, width=10).pack(side='left')
+        
+        # タブの再読み込みボタン（左側）- 初期状態では非表示（GeneralSettingsTabで制御）
+        self.refresh_btn = ttk.Button(toolbar, text=self.trans.get("refresh_tab"), command=self.refresh_current_tab)
+
+        # 更新があるときだけGitHubリンクボタンの左横に表示（バックグラウンドチェック開始）
+        # self.update_btn = ttk.Button(toolbar, text=self.trans.get("Update!"), command=self.check_and_show_update_button)
+        # self.check_and_show_update_button(toolbar, update_btn)
+
+        # GitHubアイコンパス取得
+        if hasattr(sys, '_MEIPASS'):    # PyInstallerでビルドされた場合、一時フォルダ(_MEIPASS)を参照
+            app_dir = sys._MEIPASS        
+        else:   # PyInstallerでビルドされていない場合、実行ファイルのディレクトリを参照（開発用）
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        icon_path = os.path.join(app_dir, 'icons', 'github-mark.png')
+        
+        if os.path.exists(icon_path): # GitHubリンク（画像式）
+            # github_icon = tk.PhotoImage(file=icon_path)   # 
+            github_icon_raw = tk.PhotoImage(file=icon_path)
+            github_icon = github_icon_raw.subsample(10, 10)     #subsampleで1/15に縮小するとラベルボタンと同じ高さ
+            github_btn = ttk.Button(toolbar, image=github_icon, command=self.open_github)
+            github_btn.image = github_icon  # 参照を保持
+            github_btn.pack(side='right', padx=2)
+        else: # GitHubリンク（テキストボックス式）
+            ttk.Button(toolbar, text="GitHub", command=self.open_github).pack(side='right', padx=2)  
+
+        # GitHubボタンの配置後にチェックを開始（anchorとして使用するため）
+        self.start_background_update_check(toolbar, github_btn if 'github_btn' in locals() else None)
+
+
+            
+
     def toggle_refresh_button(self, visible):
         """リフレッシュボタンの表示/非表示を切り替え"""
         if visible:
-            self.refresh_btn.pack(side='right', padx=2)
+            self.refresh_btn.pack(side='left', padx=2)
         else:
             self.refresh_btn.pack_forget()
+
+    def open_github(self):
+        """GitHubリポジトリを開く"""
+        import webbrowser
+        webbrowser.open("https://github.com/Riel2982/DIVA-PoseScaleTomlGenarator")
+
+
+    def start_background_update_check(self, toolbar, anchor_widget):
+        """バックグラウンドでアップデートを確認し、結果があればボタンを表示"""
+        def run_check():
+            try:
+                # ネットワーク通信（重い処理）
+                check_update()
+            except Exception as e:
+                logging.error(f"Background update check failed: {e}")
+            
+            # メインスレッドでUI更新をスケジュール
+            self.root.after(0, lambda: self.check_and_show_update_button(toolbar, anchor_widget))
+            
+        # デーモンスレッドで実行（アプリ終了時に道連れ停止）
+        threading.Thread(target=run_check, daemon=True).start()
+
+    def check_and_show_update_button(self, toolbar, anchor_widget):
+        """アップデート情報を確認して通知ボタンを表示"""
+        try:
+            status = load_status()
+            
+            # availableフラグがTrueならボタンを表示
+            if status.get('available', False):
+                # 最新バージョン番号取得
+                ver_text = status.get('latest_version', 'New')
+                
+                update_btn = ttk.Button(
+                    toolbar, 
+                    text=f"New Release: v{ver_text}", 
+                    command=self.on_update_click
+                )
+                # GitHubボタンの左側に配置
+                update_btn.pack(side='right', padx=5)
+        except Exception as e:
+            logging.error(f"Update check error: {e}")
+
+    def on_update_click(self):
+        """アップデートボタン押下時：詳細ダイアログを表示して更新確認"""
+        
+        # perform_update_gui を呼び出す（これが詳細ダイアログを出す）
+        perform_update_gui(self.root)
 
     def create_statusbar(self):
         """ステータスバーを作成"""
@@ -165,7 +249,7 @@ class ConfigEditorApp:
         self.status_label = tk.Label(
             self.statusbar_frame, 
             textvariable=self.status_var, 
-            font=("", 9),  # フォントを指定するなら"Meiryo UI"など（Windws規定フォントだとINFOアイコンがただのiになるっぽい）
+            font=("Meiryo UI", 9),  # フォントを指定するなら"Meiryo UI"など（Windws規定フォントだとINFOアイコンがただのiになるっぽい）
             bg='white',             
             fg='#333333',           
             relief='solid',         
@@ -395,10 +479,10 @@ class ConfigEditorApp:
                 
                 for r in restored:
                     self.pending_delete_images.remove(r)
-                    print(f"Restored image from pending delete: {r}")
+                    logging.warning(f"Restored image from pending delete: {r}")
                     
             except Exception as e:
-                print(f"Error checking restored images: {e}")
+                logging.error(f"Error checking restored images: {e}")
 
         # Map Image Previewを更新する
         if self.map_tab.app.selected_map_key:
@@ -451,21 +535,24 @@ class ConfigEditorApp:
         self.map_tab.app.map_image_label.configure(image='')
         self.map_tab.app.map_image_label.image = None
 
+    # ウィンドウの位置とサイズを保存する
     def save_geometry(self):
         try:
             current_config = self.utils.load_config(self.utils.main_config_path)
             if current_config is None:
-                print("Failed to load config for saving geometry. Skipping save.")
+                logging.error("Failed to load config for saving geometry. Skipping save.")  # 読み込み失敗をログに出力
                 return
             # このチェックは、Noneチェックが失敗を処理する場合、不要になりました
             #     current_config = self.main_config # Fallback（バックアップ）  
         except Exception:
             current_config = self.main_config
+            logging.error("Failed to load config for saving geometry. Using fallback config.")  # 読み込み失敗をログに出力
 
         if 'GeneralSettings' not in current_config: current_config['GeneralSettings'] = {}
         current_config['GeneralSettings']['WindowGeometry'] = self.root.geometry()
-        
+        logging.info(f"Saving geometry: {self.root.geometry()}")  # 保存する値をログに出力
         self.utils.save_config(current_config, self.utils.main_config_path)
+        logging.info("Geometry saved successfully.")  # 保存成功をログに出力
 
     def perform_cleanup(self):
         """終了時のクリーンアップ処理（画像削除など）"""
@@ -512,11 +599,11 @@ class ConfigEditorApp:
             logging.info(f"Cleanup: Trash directory does not exist")            
             """
             try:
-                # ignore_errors=True　で強制削除
+                # ignore_errors=True で強制削除
                 shutil.rmtree(trash_dir, ignore_errors=True)
-                print(f"Cleaned up trash directory: {trash_dir}")
+                logging.info(f"Cleaned up trash directory: {trash_dir}")
             except Exception as e:
-                print(f"Failed to clean up trash (ignored): {e}")
+                logging.warning(f"Failed to clean up trash (ignored): {e}")
                 # エラーでも処理を続行
             """
         # 関数の終了を確認

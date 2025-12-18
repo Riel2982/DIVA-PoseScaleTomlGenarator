@@ -152,6 +152,16 @@ class TranslationManager:
                 "keymap_no_changes": "No changes made.",
                 "keymap_reset": "KeyMap settings reset.",
                 "refresh_tab": "Refresh Tab",
+                # アップデート
+                "update_title": "Update Available",
+                "update_msg": "New version {} is available.\nDo you want to update?",
+                "btn_update": "Update Now",
+                "btn_browser": "Check in Browser",
+                "update_cancel": "Cancel",
+                "msg_no_update": "No updates available.",
+                "err_update_file_missing": "Update file not found.",
+                "msg_update_complete": "Update completed.\nUpdated files: {}",
+                "err_update_failed": "Update failed:\n{}",
             },
             "ja": {
                 "window_title": "Pose Scale Config Editor",
@@ -304,6 +314,16 @@ class TranslationManager:
                 "err_filename_chars": "ファイル名は半角英数字と一部記号のみ使用可能です。",
                 "keymap_reset": "ショートカットキー設定をリセットしました",
                 "refresh_tab": "再読み込み",
+                # アップデート
+                "update_title": "アップデート確認",
+                "update_msg": "新しいバージョン {} が利用可能です。\nアップデートしますか？",
+                "btn_update": " アップデート実行 ",
+                "btn_browser": " リリース情報を確認 ",
+                "update_cancel": " キャンセル ",
+                "msg_no_update": "新しいアップデートはありません。",
+                "err_update_file_missing": "更新ファイルが見つかりません。",
+                "msg_update_complete": "アップデートが完了しました。\n更新されたファイル: {}",
+                "err_update_failed": "アップデート中にエラーが発生しました:\n{}",
             },
         }
 

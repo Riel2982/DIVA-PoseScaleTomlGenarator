@@ -6,6 +6,7 @@ import ctypes
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
 
+
 def get_app_dir():
     """実行ファイルのディレクトリパスを取得"""
     if getattr(sys, 'frozen', False):
@@ -133,9 +134,9 @@ def load_chara_mapping():
 
     # キャラクター名のマッピング関数
     def map_chara(chara, mapping_type="module_to_setting"):
-        if mapping_type == "module_to_setting": # module_to_setting（モジュール名を設定名に変換）
+        if mapping_type == "module_to_setting": # モジュール名を設定名に変換
             return setting_chara_mapping.get(chara, chara)
-        elif mapping_type == "module_to_cos_scale": # module_to_cos_scale（モジュール名をCOS値に変換）
+        elif mapping_type == "module_to_cos_scale": # モジュール名をCOS値に変換
             return toml_chara_mapping.get(chara, chara)
         else:
             return chara
@@ -173,3 +174,89 @@ def is_match(name, contains_str, exclude_str=None):
 
     # ORマッチで処理
     return any(inc in name for inc in includes)
+
+
+def get_app_version():
+    """EXEのバージョンリソースを取得する（開発環境はversion.txt）"""
+    
+    # 1. 凍結アプリ(EXE)の場合: ctypesで自分自身のバージョンリソースを読む
+    if getattr(sys, 'frozen', False):
+        try:
+            filename = sys.executable
+            size = ctypes.windll.version.GetFileVersionInfoSizeW(filename, None)
+            if size > 0:
+                res = ctypes.create_string_buffer(size)
+                ctypes.windll.version.GetFileVersionInfoW(filename, None, size, res)
+                r = ctypes.c_void_p()
+                l = ctypes.c_uint()
+                
+                # VS_FIXEDFILEINFO構造体を取得
+                # ルートブロック "\" を指定すると固定情報が取れる
+                if ctypes.windll.version.VerQueryValueW(res, "\\", ctypes.byref(r), ctypes.byref(l)):
+                    class VS_FIXEDFILEINFO(ctypes.Structure):
+                        _fields_ = [
+                            ("dwSignature", ctypes.c_long),
+                            ("dwStrucVersion", ctypes.c_long),
+                            ("dwFileVersionMS", ctypes.c_long),
+                            ("dwFileVersionLS", ctypes.c_long),
+                            ("dwProductVersionMS", ctypes.c_long),
+                            ("dwProductVersionLS", ctypes.c_long),
+                            ("dwFileFlagsMask", ctypes.c_long),
+                            ("dwFileFlags", ctypes.c_long),
+                            ("dwFileOS", ctypes.c_long),
+                            ("dwFileType", ctypes.c_long),
+                            ("dwFileSubtype", ctypes.c_long),
+                            ("dwFileDateMS", ctypes.c_long),
+                            ("dwFileDateLS", ctypes.c_long),
+                        ]
+                    
+                    # メモリキャスト
+                    fi = ctypes.cast(r, ctypes.POINTER(VS_FIXEDFILEINFO)).contents
+                    # バージョン番号の抽出 (MSの上位・下位, LSの上位・下位)
+                    major = fi.dwFileVersionMS >> 16
+                    minor = fi.dwFileVersionMS & 0xFFFF
+                    build = fi.dwFileVersionLS >> 16
+                    revision = fi.dwFileVersionLS & 0xFFFF
+                    
+                    # "v1.0.0" 形式に整形（revisionが0なら省略などの調整はお好みで）
+                    if revision > 0:
+                        return f"v{major}.{minor}.{build}.{revision}"
+                    else:
+                        return f"v{major}.{minor}.{build}"
+                        
+        except Exception as e:
+            logging.error(f"Failed to read version resource: {e}")
+            pass
+
+    # 2. 開発環境または取得失敗時: version.txt を読む
+    try:
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        version_path = os.path.join(app_dir, 'version.txt')
+        if os.path.exists(version_path):
+            with open(version_path, 'r', encoding='utf-8') as f:
+                ver = f.read().strip()
+                return f"v{ver}" if not ver.startswith("v") else ver
+    except:
+        pass
+
+    return "v0.0.0-dev"
+
+VERSION = get_app_version()
+
+
+
+# 更新確認
+def generator_check_update():
+    status = load_status()
+    last_checked = status.get('last_checked', 0)
+    now = time.time()
+
+    # 指定期間以上経過していたら再チェック
+    if now - last_checked > 86400:  # 1日以上経過
+        logging.info("リリース情報が古いので再チェックします")
+        editor_path = os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "PoseScaleConfigEditor.exe")
+        if os.path.exists(editor_path):
+            subprocess.Popen([editor_path, "--check"])
+
+    else:
+        logging.info("リリース情報は最新です")

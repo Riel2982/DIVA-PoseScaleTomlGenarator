@@ -76,8 +76,9 @@ class HistoryManager:
                             os.makedirs(os.path.dirname(src))
                         shutil.move(dst, src)
                 except Exception as e:
-                    print(f"Failed to undo file move: {e}")
+                    logging.error(f"Failed to undo file move: {e}") 
 
+        # 設定変更のUndo
         if isinstance(state, dict):
             if state.get('type') == 'file_delete':
                 # ファイル削除の取り消し（復元）
@@ -90,8 +91,7 @@ class HistoryManager:
             else:
                 # 設定変更の取り消し
                 current_state = self._capture_current_state(context)
-                # 現在の状態にもfile_movesが含まれている可能性があるので保存...
-                # しかしRedo時は「この操作をやり直す」なので、popしたstateのfile_movesを使う
+                # 現在の状態にもfile_movesが含まれている可能性があるので保存（Redo時は「この操作をやり直す」なので、popしたstateのfile_movesを使う
                 stack['redo'].append(current_state)
                 self._restore_state(context, state)
         
@@ -117,10 +117,11 @@ class HistoryManager:
                             os.makedirs(os.path.dirname(dst))
                         shutil.move(src, dst)
                     else:
-                        print(f"Redo failed: Source file not found: {src}")
+                        logging.error(f"Redo failed: Source file not found: {src}")
                 except Exception as e:
-                    print(f"Failed to redo file move: {e}")
+                    logging.error(f"Failed to redo file move: {e}")
 
+        # 設定変更のやり直し
         if isinstance(state, dict):
             if state.get('type') == 'file_delete':
                 # ファイル削除のやり直し（再削除）
@@ -138,8 +139,9 @@ class HistoryManager:
             
         self.app.update_undo_redo_buttons()
 
+    # 現在の設定状態をキャプチャ
     def _capture_current_state(self, context):
-        # Capture state relevant to the context
+        # コンテキストに関連する状態をキャプチャ
         state = {}
         if context == 'general':
             state['main_config'] = self._serialize_config(self.app.main_config)
@@ -225,7 +227,7 @@ class HistoryManager:
                             if os.path.exists(filepath):
                                 os.remove(filepath)
                         except Exception as e:
-                            print(f"Failed to delete file during undo: {e}")
+                            logging.error(f"Failed to delete file during undo: {e}")
                     
                     # スナップショットで存在していたが、現在のファイルが存在しないファイル（削除されたファイル - 作成する）
                     files_to_create = set(target_files) - set(current_files)
@@ -235,7 +237,7 @@ class HistoryManager:
                             with open(filepath, 'w', encoding='utf-8-sig') as f:
                                 f.write("")
                         except Exception as e:
-                            print(f"Failed to create file during undo: {e}")
+                            logging.error(f"Failed to create file during undo: {e}")
                 
                 # 目標の設定を目標のファイルに保存する
                 self.app.current_pose_file_path = target_file
@@ -281,7 +283,7 @@ class HistoryManager:
                 self.app.pose_data_tab.load_pose_data_file()
                 
         except Exception as e:
-            print(f"Failed to restore file: {e}")
+            logging.error(f"Failed to restore file: {e}")
 
     def _delete_file(self, state):
         """ファイルを再削除"""
@@ -300,7 +302,7 @@ class HistoryManager:
                 self.app.pose_data_tab.refresh_pose_files()
                 
         except Exception as e:
-            print(f"Failed to delete file: {e}")
+            logging.error(f"Failed to delete file: {e}")
 
     def _restore_image(self, state):
         """画像をゴミ箱から復元"""
@@ -317,7 +319,7 @@ class HistoryManager:
                 self.app.map_tab.load_map_image(self.app.selected_map_key)
                 
         except Exception as e:
-            print(f"Failed to restore image: {e}")
+            logging.error(f"Failed to restore image: {e}")
 
     def _delete_image(self, state):
         """画像をゴミ箱へ移動（再削除）"""
@@ -337,4 +339,4 @@ class HistoryManager:
                 self.app.map_tab.app.map_image_label.image = None
                 
         except Exception as e:
-            print(f"Failed to delete image: {e}")
+            logging.error(f"Failed to delete image: {e}")

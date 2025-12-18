@@ -131,5 +131,16 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
 - 'Pose Scale Data'タブのTargetファイル欄で文字入力ができないように修正［Editor］
 - 'PoseID Map'で不使用画像を削除できない不具合を修正［Editor］
 
+### beta5 (未リリース)
+- アプリにバージョン情報リソースを埋め込み、バージョンが表示されるように変更［Generator/Editor］
+    - Generatorのバージョンはコンソールに表示されます。
+    - Editorのバージョンはウインドウタイトル部分に表示されます。
+- メッセージバーで表示するフォントを"Meiyo UI"に指定［Editor］
+- GUI左上にGitHubへのリンクボタンとアップデート通知ボタンを追加［Editor］
+    - GitHubアイコンをクリックするとGitHubのリポジトリが開きます。
+    - 試験的に自動アップデート機能を盛り込んでいますがまだ不安定です。
+
+
+
 ### 既知の不具合
 - 画像プレビューの削除動作はRedoで再現できない（それ以外の操作はRedoで再現できる）［Editor］
