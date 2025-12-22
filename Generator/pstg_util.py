@@ -243,20 +243,3 @@ def get_app_version():
 
 VERSION = get_app_version()
 
-
-
-# 更新確認
-def generator_check_update():
-    status = load_status()
-    last_checked = status.get('last_checked', 0)
-    now = time.time()
-
-    # 指定期間以上経過していたら再チェック
-    if now - last_checked > 86400:  # 1日以上経過
-        logging.info("リリース情報が古いので再チェックします")
-        editor_path = os.path.join(os.path.dirname(os.path.abspath(sys.executable)), "PoseScaleConfigEditor.exe")
-        if os.path.exists(editor_path):
-            subprocess.Popen([editor_path, "--check"])
-
-    else:
-        logging.info("リリース情報は最新です")

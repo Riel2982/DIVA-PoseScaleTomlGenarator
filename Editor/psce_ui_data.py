@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import configparser
 import os
-from psce_util import CustomMessagebox, normalize_text, normalize_comma_separated_string
+from psce_util import CustomMessagebox, normalize_text, normalize_comma_separated_string, CustomAskString
 
 # PoseScaleDataタブUIクラス
 class PoseDataTab:
@@ -596,7 +596,9 @@ class PoseDataTab:
     # 新しいPoseScaleファイルを作成
     def create_new_pose_file(self):
         # PoseScaleDataフォルダにファイルを作成するためのカスタムダイアログ）
-        filename = simpledialog.askstring(self.trans.get("create_new_file"), self.trans.get("enter_filename"))
+        # filename = simpledialog.askstring(self.trans.get("create_new_file"), self.trans.get("enter_filename"))    # ウインドウ位置調整不可
+        filename = CustomAskString.show(self.trans.get("create_new_file"), self.trans.get("enter_filename"), parent=self.app.root)
+        
         if not filename:
              self.app.show_status_message(self.trans.get("msg_canceled"), "warning") # 未入力などのキャンセル時
              return
@@ -639,7 +641,8 @@ class PoseDataTab:
         default_new_name = f"{base_name}_Copy"
         
         # 新しいファイル名を入力するダイアログを表示
-        new_filename = simpledialog.askstring(self.trans.get("duplicate_file"), self.trans.get("enter_filename"), initialvalue=default_new_name)
+        # new_filename = simpledialog.askstring(self.trans.get("duplicate_file"), self.trans.get("enter_filename"), initialvalue=default_new_name)  # ウインドウ位置調整不可
+        new_filename = CustomAskString.show(self.trans.get("duplicate_file"), self.trans.get("enter_filename"), initialvalue=default_new_name, parent=self.app.root)
         # ファイル名が未入力の場合キャンセル
         if not new_filename: 
              self.app.show_status_message(self.trans.get("msg_canceled"), "warning")
@@ -684,7 +687,8 @@ class PoseDataTab:
         
         # 初期値を渡す
         # simpledialog.askstringは標準のtkinterで初期値をサポート
-        new_filename = simpledialog.askstring(self.trans.get("rename_file"), self.trans.get("enter_filename"), initialvalue=base_name)
+        # new_filename = simpledialog.askstring(self.trans.get("rename_file"), self.trans.get("enter_filename"), initialvalue=base_name)
+        new_filename = CustomAskString.show(self.trans.get("rename_file"), self.trans.get("enter_filename"), initialvalue=base_name, parent=self.app.root)
         # ファイル名が未入力の場合キャンセル
         if not new_filename: 
              self.app.show_status_message(self.trans.get("msg_canceled"), "warning") # 未入力などのキャンセル時

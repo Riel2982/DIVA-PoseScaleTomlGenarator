@@ -54,8 +54,17 @@ def launch_editor():
 def main():
     # バージョン情報をコンソールに表示
     from pstg_util import VERSION
-    print(f"Pose Scale Toml Generator {VERSION}")
-    print("=" * 50)
+    if VERSION != "v0.0.0-dev": # バージョン情報がある時
+        print(f"Pose Scale Toml Generator {VERSION}")
+        print("-" * 50)
+        # アップデート通知確認
+        from pstg_update import check_and_notify_update_console
+        check_and_notify_update_console(force=False)    # Trueの時は矯正API取得
+        print("=" * 75)
+    else:   # バージョン情報がない時（表示しない）
+        print("Pose Scale Toml Generator")
+        print("=" * 50)
+    
 
     try:
         # 1. 設定の読み込み
@@ -94,8 +103,6 @@ def main():
             
         pstg_util.setup_logging(show_debug=show_debug, output_log=output_log)
         
-        # プログラム開始ログ
-        logging.info("プログラムを開始します")
 
         # 3. ファイルのドラッグ＆ドロップ処理(引数がない場合は使い方を表示して終了
         if len(sys.argv) < 2:
@@ -104,6 +111,9 @@ def main():
             if has_console():
                 input("Press Enter to exit...")
             return
+
+        # プログラム開始ログ
+        logging.info("プログラムを開始します")
 
         dragged_file = pstg_farc.get_dragged_file() # ドラッグ＆ドロップされたファイルのパス
         

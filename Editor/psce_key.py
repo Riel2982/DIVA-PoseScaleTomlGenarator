@@ -184,7 +184,213 @@ class KeyManager:
             self.app.show_debug_var.set(new_value)
             self.app.general_tab.toggle_debug_settings()
 
+    def restart_app(self):
+            """アプリケーションを再起動する内部メソッド（直接起動・デバッグ版）"""
+            try:
+                # 1. 実行ファイルのパス
+                exe_path = sys.executable
+                # 2. 環境変数のクリーンアップ
+                # PyInstallerの環境変数が残っていると再起動後のアプリがクラッシュするため除去
+                env = {}
+                ignore_keys = {
+                    'TCL_LIBRARY', 'TK_LIBRARY',
+                    '_MEIPASS', '_MEIPASS2',
+                    'PYTHONPATH', 'PYTHONHOME',
+                }
+                ignore_prefixes = ('_MEI', 'PYTHON', 'TCL', 'TK')
+                
+                for k, v in os.environ.items():
+                    k_upper = k.upper()
+                    if k_upper not in ignore_keys and not k_upper.startswith(ignore_prefixes):
+                        env[k] = v
+                # 3. 新しいプロセスを起動
+                # creationflags=0x00000010 (CREATE_NEW_CONSOLE) で別コンソールとして分離
+                if getattr(sys, 'frozen', False):
+                    # EXEの場合
+                    subprocess.Popen([exe_path], env=env, creationflags=0x00000010)
+                else:
+                    # 開発環境の場合
+                    subprocess.Popen([exe_path] + sys.argv, env=env, creationflags=0x00000010)
+            except Exception as e:
+                # エラーが起きたらダイアログで表示
+                import traceback
+                err_msg = f"再起動に失敗しました:\n{e}\n{traceback.format_exc()}"
+                tk.messagebox.showerror("Restart Error", err_msg)
+                logging.error(err_msg)
+                return  # 起動失敗時は終了しない
+            # 4. 現在のプロセスを終了
+            logging.info("Restarting... closing current process.")
+            self.app.perform_cleanup()
+            self.app.root.destroy()
+            sys.exit(0)
 
+if False:
+    def restart_app(self):
+        """VBScriptで再起動（環境変数を継承しない）"""
+        import tempfile
+        
+        try:
+            # 実行ファイル情報の取得
+            if getattr(sys, 'frozen', False):
+                exe_path = sys.executable
+            else:
+                # 開発環境ではフォールバック
+                logging.warning("VBS restart is only available in frozen mode")
+                self._restart_fallback()
+                return
+            
+            # VBScriptファイル生成
+            vbs_path = os.path.join(tempfile.gettempdir(), "psce_restart.vbs")
+            
+            # VBScriptでプロセスを明示的に終了させる
+            exe_name = os.path.basename(exe_path)
+            vbs_content = f"""Set WshShell = CreateObject("WScript.Shell")
+Set objWMIService = GetObject("winmgmts:\\\\.\\root\\cimv2")
+
+' 対象プロセスを強制終了
+Set colProcesses = objWMIService.ExecQuery("Select * from Win32_Process Where Name = '{exe_name}'")
+For Each objProcess in colProcesses
+    objProcess.Terminate()
+Next
+
+' プロセスが完全に終了し、MEIフォルダが削除されるまで待機
+WScript.Sleep 3000
+
+' 念のため、プロセスが本当に存在しないか確認
+Do
+    Set colProcesses = objWMIService.ExecQuery("Select * from Win32_Process Where Name = '{exe_name}'")
+    If colProcesses.Count = 0 Then
+        Exit Do
+    End If
+    WScript.Sleep 500
+Loop
+
+' さらに2秒待機（MEIフォルダの完全削除を確実にする）
+WScript.Sleep 2000
+
+' アプリを起動（完全にクリーンな状態で）
+WshShell.Run Chr(34) & "{exe_path}" & Chr(34), 1, False
+"""
+            
+            with open(vbs_path, 'w', encoding='utf-8') as f:
+                f.write(vbs_content)
+            
+            # VBScriptを実行
+            subprocess.Popen(["wscript.exe", vbs_path], creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            logging.info(f"Restart initiated via VBScript (script: {vbs_path})")
+            
+            # クリーンアップして終了
+            self.app.perform_cleanup()
+            self.app.root.quit()
+            # sys.exit(0)
+            
+        except Exception as e:
+            logging.error(f"Restart failed: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
+            # エラー時はフォールバックせずメッセージのみ
+            tk.messagebox.showerror("再起動エラー", f"再起動に失敗しました:\n{e}")
+
+if False:
+    def restart_app(self):
+        """BATファイルを動的生成してPowerShellスクリプトを実行"""
+        import tempfile
+        
+        try:
+            # 実行ファイル情報の取得
+            if getattr(sys, 'frozen', False):
+                exe_name = os.path.basename(sys.executable)
+            else:
+                # 開発環境ではフォールバック
+                logging.warning("BAT restart is only available in frozen mode")
+                self._restart_fallback()
+                return
+            
+            # PowerShellスクリプト生成
+            ps_script_path = os.path.join(tempfile.gettempdir(), "psce_restart.ps1")
+            ps_content = f"""# Auto-generated restart script
+$ExeName = "{exe_name}"
+Get-WmiObject Win32_Process | Where-Object {{ $_.Name -eq $ExeName }} | ForEach-Object {{
+    $ExePath = $_.Path
+    $ExeDir = Split-Path -Path $ExePath -Parent
+    
+    Stop-Process -Id $_.ProcessId -Force
+    Start-Sleep -Seconds 1
+    
+    Set-Location $ExeDir
+    Start-Process -FilePath $ExePath -WorkingDirectory $ExeDir
+}}
+"""
+            with open(ps_script_path, 'w', encoding='utf-8') as f:
+                f.write(ps_content)
+            
+            # BATファイル生成
+            bat_path = os.path.join(tempfile.gettempdir(), "psce_restart.bat")
+            bat_content = f"""@echo off
+    powershell.exe -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File "{ps_script_path}"
+    del "%~f0"
+    """
+            with open(bat_path, 'w', encoding='cp932') as f:
+                f.write(bat_content)
+            
+            # BATを実行
+            subprocess.Popen(["cmd", "/c", bat_path], creationflags=subprocess.CREATE_NO_WINDOW)
+            
+            logging.info(f"Restart initiated via BAT+PowerShell")
+            
+            self.app.perform_cleanup()
+            self.app.root.destroy()
+            sys.exit(0)
+            
+        except Exception as e:
+            logging.error(f"Restart failed: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
+            self._restart_fallback()
+
+    def _restart_fallback(self):
+        """フォールバック: 環境変数クリーニング方式"""
+        try:
+            exe_path = sys.executable
+            
+            # 環境変数のクリーンアップ（PyInstaller関連をすべて除去）
+            env = {}
+            ignore_keys = {
+                'TCL_LIBRARY', 'TK_LIBRARY',
+                '_MEIPASS', '_MEIPASS2',  # PyInstaller一時フォルダ
+                'PYTHONPATH', 'PYTHONHOME',  # Python環境
+            }
+            ignore_prefixes = ('_MEI', 'PYTHON', 'TCL', 'TK')  # プレフィックスマッチ
+    
+            for k, v in os.environ.items():
+                k_upper = k.upper()
+                # 除外リストとプレフィックスの両方でチェック
+                if k_upper not in ignore_keys and not k_upper.startswith(ignore_prefixes):
+                    env[k] = v
+            
+            # 新しいプロセスを起動
+            if getattr(sys, 'frozen', False):
+                subprocess.Popen([exe_path], env=env, creationflags=0x00000010)
+            else:
+                subprocess.Popen([exe_path] + sys.argv, env=env, creationflags=0x00000010)
+            
+            logging.info("Restart initiated via fallback method")
+            
+        except Exception as e:
+            import traceback
+            err_msg = f"再起動に失敗しました:\n{e}\n{traceback.format_exc()}"
+            tk.messagebox.showerror("Restart Error", err_msg)
+            logging.error(err_msg)
+            return  # 起動失敗時は終了しない
+        
+        # 現在のプロセスを終了
+        self.app.perform_cleanup()
+        self.app.root.destroy()
+        sys.exit(0)
+
+
+if False:
     def restart_app(self):
             """アプリケーションを再起動する内部メソッド（直接起動・デバッグ版）"""
             try:

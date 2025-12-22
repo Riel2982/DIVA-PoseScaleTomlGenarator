@@ -284,6 +284,47 @@ class ConfigUtility:
         return False
 
 
+class CustomAskString(tk.Toplevel):
+    def __init__(self, parent, title, prompt, initialvalue=""):
+        super().__init__(parent)
+        self.withdraw() # 構築中は非表示
+        self.title(title)
+        self.result = None
+        
+        # UI構築
+        frame = ttk.Frame(self, padding=10)
+        frame.pack(fill='both', expand=True)
+        
+        ttk.Label(frame, text=prompt).pack(anchor='w', pady=(0, 5))
+        
+        self.var = tk.StringVar(value=initialvalue)
+        self.entry = ttk.Entry(frame, textvariable=self.var, width=30)
+        self.entry.pack(fill='x', pady=(0, 10))
+        self.entry.bind('<Return>', self.on_ok)
+        self.entry.bind('<Escape>', self.on_cancel)
+        
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(fill='x')
+        ttk.Button(btn_frame, text="OK", command=self.on_ok).pack(side='left', padx=5, expand=True)
+        ttk.Button(btn_frame, text="Cancel", command=self.on_cancel).pack(side='left', padx=5, expand=True)
+        
+        # 親ウィンドウの中心またはマウス位置に配置
+        CustomMessagebox._center_window(self, parent)
+        
+        self.deiconify() # 表示
+        self.entry.focus_set()
+        self.entry.select_range(0, 'end')
+    def on_ok(self, event=None):
+        self.result = self.var.get()
+        self.destroy()
+    def on_cancel(self, event=None):
+        self.destroy()
+    @staticmethod
+    def show(title, prompt, initialvalue="", parent=None):
+        dialog = CustomAskString(parent, title, prompt, initialvalue)
+        parent.wait_window(dialog)
+        return dialog.result
+
 class CustomMessagebox:
     @staticmethod
     def _center_window(win, parent=None):

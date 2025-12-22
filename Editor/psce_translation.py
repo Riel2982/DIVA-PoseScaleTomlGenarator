@@ -154,7 +154,7 @@ class TranslationManager:
                 "refresh_tab": "Refresh Tab",
                 # アップデート
                 "update_title": "Update Available",
-                "update_msg": "New version {} is available.\nDo you want to update?",
+                "update_msg": "New version {} is available.\nDo you want to update?\n⚠ Save your current file before running.",
                 "btn_update": "Update Now",
                 "btn_browser": "Check in Browser",
                 "update_cancel": "Cancel",
@@ -162,6 +162,7 @@ class TranslationManager:
                 "err_update_file_missing": "Update file not found.",
                 "msg_update_complete": "Update completed.\nUpdated files: {}",
                 "err_update_failed": "Update failed:\n{}",
+                "msg_manual_restart": "Editor to be terminated for update execution.",
             },
             "ja": {
                 "window_title": "Pose Scale Config Editor",
@@ -316,7 +317,7 @@ class TranslationManager:
                 "refresh_tab": "再読み込み",
                 # アップデート
                 "update_title": "アップデート確認",
-                "update_msg": "新しいバージョン {} が利用可能です。\nアップデートしますか？",
+                "update_msg": "新しいバージョン {} が利用可能です。\nアップデートしますか？\n\n⚠ 実行前に編集中のファイルを保存してください。",
                 "btn_update": " アップデート実行 ",
                 "btn_browser": " リリース情報を確認 ",
                 "update_cancel": " キャンセル ",
@@ -324,6 +325,7 @@ class TranslationManager:
                 "err_update_file_missing": "更新ファイルが見つかりません。",
                 "msg_update_complete": "アップデートが完了しました。\n更新されたファイル: {}",
                 "err_update_failed": "アップデート中にエラーが発生しました:\n{}",
+                "msg_manual_restart": "アップデート実行のためEditorを終了します。",
             },
         }
 

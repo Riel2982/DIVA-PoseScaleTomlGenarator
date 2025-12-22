@@ -4,7 +4,7 @@ import configparser
 import sys
 import ctypes
 from psce_gui import ConfigEditorApp
-from psce_util import setup_editor_logging, ConfigUtility
+from psce_util import setup_editor_logging, ConfigUtility, VERSION
 from psce_update import check_update
 
 # メイン関数
@@ -21,7 +21,7 @@ if __name__ == "__main__":
         sys.path.append(os.path.dirname(os.path.abspath(__file__)))
         
         try:
-            check_update()
+            check_update(current_version=VERSION, exe_name="PoseScaleConfigEditor.exe")
         except Exception as e:
             pass # エラーでも黙って終了
         sys.exit(0)

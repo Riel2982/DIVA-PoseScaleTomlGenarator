@@ -96,7 +96,7 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
     - Pose Scale Data: どのモジュールにどのPose・Scaleを当てはめるか判別する条件設定編集
     - Pose ID Map: PoseIDリストを作成（必須ではない）
 - キャラ枠指定でのPose・ScaleのTomlデータを出力可能に［Generator］
-- 同名ファイルが存在する場合は常にタイムスタンプ付きでリネームしてバックアップしていたのを、上書き保存するか選べるように［Generator］
+- 同名ファイルが存在する場合は常にタイムスタンプ付きでリネームしてバックアップしていたのを、上書き保存するか選択可能に［Generator］
 
 ### beta2 (2025-12-03)
 - Toml Profile有効時でも該当するプロファイルが存在しない場合はデフォルトデータ（PoseScaleData.ini）を使用してTomlファイルを作成するように変更［Generator］
@@ -104,7 +104,7 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
 - テキストボックス入力でのCtl+Z / Ctl+Yのショートカットを有効化［Editor］
     - 'Pose Scale Data'タブのPose ID入力欄は未対応。
 - モジュール一致・モジュール除外入力欄にカンマ補正機能を実装［Editor］
-    - ```A,B```や```A, B,```のような入力ミスを```A, B```という形式に補正します。
+    - ```A,B```や```A, B,```のような入力ミスを```A, B```という形式に補正。
 - 'Toml Profile'タブ・'Pose Scale Data'タブ・'Pose ID Map'タブでリストのアイテムをDeleteした時にDelete対象の前後のアイテムを選択状態に切り替えるように変更［Editor］
 - 'Toml Profile'タブ・'Pose Scale Data'タブ・'Pose ID Map'タブでリストのアイテムをUndo/Redoで復元した時に復元されたアイテムを選択状態に切り替えるように変更［Editor］
 - 各種Save/UpdateおよびDeleate時のポップアップを廃止［Editor］
@@ -131,16 +131,16 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
 - 'Pose Scale Data'タブのTargetファイル欄で文字入力ができないように修正［Editor］
 - 'PoseID Map'で不使用画像を削除できない不具合を修正［Editor］
 
-### beta5 (未リリース)
-- アプリにバージョン情報リソースを埋め込み、バージョンが表示されるように変更［Generator/Editor］
-    - Generatorのバージョンはコンソールに表示されます。
-    - Editorのバージョンはウインドウタイトル部分に表示されます。
+### beta5 (2025-12-22)
+⚠ このバージョンは起動に時間がかかる場合があります
+- アプリにバージョンなどの各情報を追加［Generator/Editor］
+    - Generatorのバージョンをコンソールに表示するように変更
+    - Editorのバージョンをウインドウタイトル部分に表示するように変更
 - メッセージバーで表示するフォントを"Meiyo UI"に指定［Editor］
 - GUI左上にGitHubへのリンクボタンとアップデート通知ボタンを追加［Editor］
-    - GitHubアイコンをクリックするとGitHubのリポジトリが開きます。
-    - 試験的に自動アップデート機能を盛り込んでいますがまだ不安定です。
-
-
+    - GitHubアイコンをクリックするとGitHubのリポジトリが開く
+    - アップデート通知がある場合GitHubアイコンの横に通知ボタンが表示
+- 'Pose Scale Data'タブで表示される各ポップアップ表示位置をマウスカーソル付近に変更［Editor］
 
 ### 既知の不具合
 - 画像プレビューの削除動作はRedoで再現できない（それ以外の操作はRedoで再現できる）［Editor］

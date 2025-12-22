@@ -57,7 +57,10 @@ class ConfigEditorApp:
         self.trans.set_language(lang)
         
         # self.root.title(self.trans.get("window_title"))   # GUIのウィンドウタイトルを翻訳対応する場合
-        self.root.title(f"Pose Scale Config Editor - {VERSION}")
+        if VERSION != "v0.0.0-dev": # バージョン情報の埋め込み有り
+            self.root.title(f"Pose Scale Config Editor - {VERSION}")
+        else:   # バージョンが埋め込まれていない時（バージョンは表示しない）
+            self.root.title(self.trans.get("window_title"))
         
         # Set Icon（アイコンの設定）
         icon_path = None
@@ -187,13 +190,10 @@ class ConfigEditorApp:
 
     def start_background_update_check(self, toolbar, anchor_widget):
         """バックグラウンドでアップデートを確認し、結果があればボタンを表示"""
+        from psce_update import run_background_update_check
+        
         def run_check():
-            try:
-                # ネットワーク通信（重い処理）
-                check_update()
-            except Exception as e:
-                logging.error(f"Background update check failed: {e}")
-            
+            run_background_update_check()
             # メインスレッドでUI更新をスケジュール
             self.root.after(0, lambda: self.check_and_show_update_button(toolbar, anchor_widget))
             
@@ -202,23 +202,109 @@ class ConfigEditorApp:
 
     def check_and_show_update_button(self, toolbar, anchor_widget):
         """アップデート情報を確認して通知ボタンを表示"""
+        from psce_update import get_update_info
+        
         try:
-            status = load_status()
+            update_info = get_update_info()
             
-            # availableフラグがTrueならボタンを表示
-            if status.get('available', False):
-                # 最新バージョン番号取得
-                ver_text = status.get('latest_version', 'New')
-                
+            if update_info['show_button']:
                 update_btn = ttk.Button(
                     toolbar, 
-                    text=f"New Release: v{ver_text}", 
+                    text=update_info['button_text'], 
                     command=self.on_update_click
                 )
                 # GitHubボタンの左側に配置
                 update_btn.pack(side='right', padx=5)
         except Exception as e:
             logging.error(f"Update check error: {e}")
+
+    if False:
+        def start_background_update_check(self, toolbar, anchor_widget):
+            """バックグラウンドでアップデートを確認し、結果があればボタンを表示"""
+            def run_check():
+                try:
+                    # Editor自身のチェック
+                    check_update(current_version=VERSION, exe_name="PoseScaleConfigEditor.exe")
+                    
+                    # Generatorのステータスも確認（EditorとGeneratorは同じディレクトリにあると仮定）
+                    app_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+                    generator_path = os.path.join(app_dir, "PoseScaleTomlGenerator.exe")
+                    
+                    if os.path.exists(generator_path):
+                        # Generatorのバージョンを取得（pstg_util.VERSIONと同じロジック）
+                        # ここでは簡易的に、status.jsonから前回のgenerator versionを取得
+                        status = load_status()
+                        gen_status = status.get('PoseScaleTomlGenerator.exe', {})
+                        gen_version = gen_status.get('current_version', VERSION)  # フォールバック
+                        
+                        # Generatorのステータスも更新
+                        check_update(current_version=gen_version, exe_name="PoseScaleTomlGenerator.exe")
+                        
+                except Exception as e:
+                    logging.error(f"Background update check failed: {e}")
+                
+                # メインスレッドでUI更新をスケジュール
+                self.root.after(0, lambda: self.check_and_show_update_button(toolbar, anchor_widget))
+                
+            # デーモンスレッドで実行（アプリ終了時に道連れ停止）
+            threading.Thread(target=run_check, daemon=True).start()
+
+        def check_and_show_update_button(self, toolbar, anchor_widget):
+            """アップデート情報を確認して通知ボタンを表示"""
+            try:
+                from packaging import version as pkg_version
+                
+                status = load_status()
+                latest_version = status.get('latest_version', '')
+                
+                if not latest_version:
+                    return
+                
+                editor_status = status.get('PoseScaleConfigEditor.exe', {})
+                gen_status = status.get('PoseScaleTomlGenerator.exe', {})
+                
+                # availableフラグを信頼せず、その場でバージョン比較
+                editor_available = False
+                gen_available = False
+                
+                try:
+                    latest_clean = latest_version.lstrip('v')
+                    
+                    # Editorのバージョン確認
+                    editor_current = editor_status.get('current_version', VERSION)
+                    editor_clean = editor_current.lstrip('v')
+                    editor_available = pkg_version.parse(latest_clean) > pkg_version.parse(editor_clean)
+                    
+                    # Generatorのバージョン確認
+                    gen_current = gen_status.get('current_version', '')
+                    if gen_current:
+                        gen_clean = gen_current.lstrip('v')
+                        gen_available = pkg_version.parse(latest_clean) > pkg_version.parse(gen_clean)
+                except Exception as e:
+                    logging.error(f"Version comparison error: {e}")
+                    return
+                
+                ver_text = f"v{latest_version}" if not latest_version.startswith('v') else latest_version
+                
+                # どちらかが更新可能な場合にボタン表示
+                if editor_available or gen_available:
+                    # ボタンテキストの決定
+                    if editor_available and gen_available:
+                        btn_text = f"New Release: v{ver_text}"
+                    elif editor_available:
+                        btn_text = f"Editor Update: v{ver_text}"
+                    else:
+                        btn_text = f"Generator Update: v{ver_text}"
+                    
+                    update_btn = ttk.Button(
+                        toolbar, 
+                        text=btn_text, 
+                        command=self.on_update_click
+                    )
+                    update_btn.pack(side='right', padx=5)
+                    
+            except Exception as e:
+                logging.error(f"Update check error: {e}")
 
     def on_update_click(self):
         """アップデートボタン押下時：詳細ダイアログを表示して更新確認"""
