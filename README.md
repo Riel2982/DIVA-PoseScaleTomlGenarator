@@ -146,10 +146,13 @@ The code has been generated using Microsoft Copilot and Antigravity, with some m
     - アップデート通知がある場合GitHubアイコンの横に通知ボタンが表示
 - 'Pose Scale Data'タブで表示される各ポップアップ表示位置をマウスカーソル付近に変更［Editor］
 
-### beta6 (未リリース)
+### beta6 (2025-12-26)
 - アップデート通知の不具合を修正［Generator/Editor］
 - EXEファイルのサイズを削減［Generator/Editor］
 - メッセージバーの表示が意図したフォントで表示されない不具合を修正［Editor］
+- メッセージバーに案内が表示される時間を短く変更［Editor］
+- Undo/Redoボタン実行時にもメッセージが表示されるように変更［Editor］
+- "Pose ID Map"タブで画像を選択して読み込んだ時にメッセージが表示されるように変更［Editor］
 
 
 ### 既知の不具合

@@ -61,7 +61,7 @@ class HistoryManager:
         if not context: return
         stack = self._get_stack(context)
         
-        if not stack['undo']: return
+        if not stack['undo']: return False
         
         state = stack['undo'].pop()
         
@@ -96,13 +96,14 @@ class HistoryManager:
                 self._restore_state(context, state)
         
         self.app.update_undo_redo_buttons()
+        return True
 
     def redo(self, context):
         """やり直す"""
         if not context: return
         stack = self._get_stack(context)
         
-        if not stack['redo']: return
+        if not stack['redo']: return False
         
         state = stack['redo'].pop()
         
@@ -138,6 +139,7 @@ class HistoryManager:
                 self._restore_state(context, state)
             
         self.app.update_undo_redo_buttons()
+        return True
 
     # 現在の設定状態をキャプチャ
     def _capture_current_state(self, context):

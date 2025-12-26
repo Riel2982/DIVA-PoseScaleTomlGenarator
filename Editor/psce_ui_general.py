@@ -100,12 +100,12 @@ class GeneralSettingsTab:
         spin_history = ttk.Spinbox(frame_history, from_=50, to=150, textvariable=self.app.history_limit_var, width=5)
         spin_history.pack(side='left', padx=5)
 
-        self.toggle_debug_settings()
+        self.toggle_debug_settings(silent=True)
 
 
 
     # デバッグ設定切り替え
-    def toggle_debug_settings(self):
+    def toggle_debug_settings(self, silent=False):
         # リフレッシュボタンの表示切り替え
         if hasattr(self.app, 'toggle_refresh_button'):
             self.app.toggle_refresh_button(self.app.show_debug_var.get())
@@ -118,6 +118,9 @@ class GeneralSettingsTab:
                 tab_id = str(self.app.ui_key.tab)
                 if tab_id not in self.app.notebook.tabs():
                     self.app.notebook.add(self.app.ui_key.tab, text=self.trans.get("tab_key_map"))
+            # メッセージバー
+            if not silent:
+                self.app.show_status_message(self.trans.get("msg_debug_enabled"), "info")
         # デバッグ設定非表示
         else:
             self.frame_debug.pack_forget()
@@ -126,6 +129,11 @@ class GeneralSettingsTab:
                 tab_id = str(self.app.ui_key.tab)
                 if tab_id in self.app.notebook.tabs():
                     self.app.notebook.forget(self.app.ui_key.tab)
+            # メッセージバー
+            if not silent:
+                self.app.show_status_message(self.trans.get("msg_debug_disabled"), "info")
+        
+
 
     # FarcPack選択ダイアログ
     def browse_farc(self):

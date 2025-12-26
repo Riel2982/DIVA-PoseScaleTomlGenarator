@@ -210,6 +210,8 @@ class PoseIDMapTab:
                 
                 # Image is saved with filename-based naming convention, no config update needed
                 self.load_map_image(pose_id)
+                # メッセージバー
+                self.app.show_status_message(self.trans.get("msg_image_loaded"), "success")
             # 画像コピー失敗時 (select_map_image)
             except Exception as e:
                 # messagebox.showerror(self.trans.get("error"), self.trans.get("copy_image_fail", path))
