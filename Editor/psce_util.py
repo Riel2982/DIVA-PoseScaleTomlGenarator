@@ -41,8 +41,14 @@ def setup_editor_logging(show_debug=False, output_log=False):
     logger = logging.getLogger() # ロガー
     logger.setLevel(logging.DEBUG) # ログレベル
 
+    # PIL(画像処理)の細かいデバッグログを抑制する（ログが見やすくなります）
+    logging.getLogger("PIL").setLevel(logging.INFO) 
+
     if logger.hasHandlers(): # ハンドラーが設定されている場合
         logger.handlers.clear()
+
+    app_dir = get_app_dir()  # 実行ファイルのディレクトリ
+    log_dir = os.path.join(app_dir, 'logs')  # ログディレクトリ
 
     # show_debug=Trueの時だけコンソール出力
     if show_debug:
@@ -54,13 +60,18 @@ def setup_editor_logging(show_debug=False, output_log=False):
     else:
         # show_debug=Falseの時はNullHandler（すべてのログメッセージを無視する特殊なハンドラー）で出力を完全に抑制
         logger.addHandler(logging.NullHandler())    # Pythonのloggingモジュールが勝手に「lastResort」ハンドラーを使うのでその対策
+        # デバッグモードがOFFの時、logsフォルダが存在すれば削除する
+        if os.path.exists(log_dir):
+            try:
+                shutil.rmtree(log_dir, ignore_errors=True)
+                logging.info(f"Cleaned up logs directory: {log_dir}") # NullHandler行きになるが念のため
+            except Exception:
+                pass  
 
     # output_log=Trueの時だけファイル出力
     if output_log:
         file_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
 
-        app_dir = get_app_dir()  # 実行ファイルのディレクトリ
-        log_dir = os.path.join(app_dir, 'logs')  # ログディレクトリ
         os.makedirs(log_dir, exist_ok=True)  # ログディレクトリを作成
  
         # ファイルハンドラー
@@ -88,7 +99,8 @@ def setup_editor_logging(show_debug=False, output_log=False):
         logger.addHandler(debug_handler) # デバッグハンドラーを追加
 
         logging.info("=== Editor started ===")
-        
+
+
 
 # 様々な処理関数クラス
 class ConfigUtility:

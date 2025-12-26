@@ -2,7 +2,8 @@ import sys
 import os
 import json
 import time
-import requests
+import urllib.request
+import urllib.error
 import subprocess
 import shutil
 import logging
@@ -11,7 +12,7 @@ import re
 import webbrowser
 from datetime import datetime # 日時用
 from tkinter import Toplevel, ttk, messagebox, Tk
-from packaging import version
+# from packaging import version # 自作関数に置き換え
 from psce_util import VERSION, ConfigUtility
 from psce_translation import TranslationManager
 
@@ -42,6 +43,17 @@ def save_status(data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8-sig') as f:
         json.dump(data, f, indent=4)
+
+def parse_version(v_str):   # Packagingライブラリの代用
+    """バージョン文字列を数値タプルに変換 (例: 'v1.2.3' -> (1, 2, 3))"""
+    if not v_str:
+        return (0, 0, 0)
+    # v除去とbeta除去 (例: v1.0.0-beta -> 1.0.0)
+    v_clean = v_str.lstrip('v').split('-')[0]
+    try:
+        return tuple(map(int, v_clean.split('.')))
+    except ValueError:
+        return (0, 0, 0)        
 
 def parse_release_filename(filename):
     # 例: PoseScaleTomlGenerator_v0.1.1-beta.zip → {"version": "0.1.1-beta"}
@@ -75,10 +87,16 @@ def check_update(current_version=None, exe_name="PoseScaleConfigEditor.exe", for
     if current_version is None:
         current_version = VERSION
     
-    # 毎回 current_version を更新
+    # 毎回 current_version を更新（更新が必要な場合のみフラグを立てる）
     if exe_name not in status:
         status[exe_name] = {}
-    status[exe_name]['current_version'] = current_version
+    
+    # 実際の内容が違う場合のみ更新フラグを立てる
+    if status[exe_name].get('current_version') != current_version:
+        status[exe_name]['current_version'] = current_version
+        needs_save = True
+    else:
+        needs_save = False
 
     # 頻度制限: 1時間以内なら前回の結果を返す (force=Trueなら無視)
     if not force and 'last_checked_iso' in status:
@@ -86,17 +104,39 @@ def check_update(current_version=None, exe_name="PoseScaleConfigEditor.exe", for
             last_checked = datetime.fromisoformat(status['last_checked_iso'])
             if (current_time - last_checked).total_seconds() < 3600:
                 # availableフラグは削除、判定はget_update_info()で行う
+                if needs_save:  # Trueの時
+                    save_status(status) # status保存
                 return status
         except Exception:
             pass
 
 
+    # GitHub API呼び出し(requests -> urllib)
     try:
+        """
+        import requests # 巨大ライブラリのため起動遅延の原因に
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"
         response = requests.get(url, timeout=5) # タイムアウト5秒
         
         if response.status_code == 200:
             release = response.json()
+        """    
+        # urllibライブラリ使用
+        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"
+        
+        # タイムアウト設定付きでリクエスト作成
+        req = urllib.request.Request(url)
+        # GitHub APIはUser-Agentがないと拒否される場合があるため設定推奨（なくても動くことが多いが念のため）
+        req.add_header('User-Agent', 'PoseScaleTomlGenerator-Updater')
+
+        with urllib.request.urlopen(req, timeout=5) as res:
+            if res.status != 200:
+                logging.error(f"Update Check Error: Status Code {res.status}")
+                return None
+            
+            # JSON読み込み
+            release = json.loads(res.read().decode('utf-8'))            
+            
             # current_version = VERSION # 実行中のアプリバージョンを使用
             latest_version = ""
             # ZIPファイルからバージョン抽出
@@ -113,7 +153,7 @@ def check_update(current_version=None, exe_name="PoseScaleConfigEditor.exe", for
             # SemVer比較
             is_newer = False
             try:
-                is_newer = version.parse(latest_version) > version.parse(current_version)
+                is_newer = parse_version(latest_version) > parse_version(current_version)
             except Exception as e:
                 logging.error(f"Version parse error: {e}")
 
@@ -139,6 +179,16 @@ def check_update(current_version=None, exe_name="PoseScaleConfigEditor.exe", for
             # availableフラグは削除、判定はget_update_info()で行う
             save_status(status)
             return status
+
+    except urllib.error.URLError as e:
+        # ネットワークエラーやタイムアウト
+        logging.error(f"Update check failed (URLError): {e}")
+        return status
+    except Exception as e:
+        logging.error(f"Update check failed: {e}")
+        return status
+    
+    """ # requestsライブラリ使用時
         else:
             logging.error(f"Update Check Error: Status Code {response.status_code}")
             return None
@@ -146,7 +196,7 @@ def check_update(current_version=None, exe_name="PoseScaleConfigEditor.exe", for
     except Exception as e:
         logging.error(f"Update check failed: {e}")
         return status
-
+    """
 
 def run_background_update_check():
     """
@@ -184,7 +234,7 @@ def get_update_info():
             'latest_version': str # 最新バージョン
         }
     """
-    from packaging import version as pkg_version
+    # from packaging import version as pkg_version  # 自作関数に置き換え
     
     status = load_status()
     latest_version = status.get('latest_version', '')
@@ -205,13 +255,13 @@ def get_update_info():
         # Editorのバージョン確認
         editor_current = editor_status.get('current_version', VERSION)
         editor_clean = editor_current.lstrip('v')
-        editor_available = pkg_version.parse(latest_clean) > pkg_version.parse(editor_clean)
+        editor_available = parse_version(latest_clean) > parse_version(editor_clean)
         
         # Generatorのバージョン確認
         gen_current = gen_status.get('current_version', '')
         if gen_current:
             gen_clean = gen_current.lstrip('v')
-            gen_available = pkg_version.parse(latest_clean) > pkg_version.parse(gen_clean)
+            gen_available = parse_version(latest_clean) > parse_version(gen_clean)
     except Exception as e:
         logging.error(f"Version comparison error: {e}")
         return {'show_button': False, 'button_text': '', 'latest_version': ''}
@@ -347,11 +397,11 @@ def perform_update(root_window=None):
     editor_update_info = None  # 初期化してUnboundLocalErrorを防止
 
     try:
-        from packaging import version as pkg_version
+        # from packaging import version as pkg_version
         latest_version = status.get('latest_version', '')
         latest_clean = latest_version.lstrip('v')
         
-        # ダウンロード処理
+        # ダウンロード処理 (requests.get stream -> urllib)
         for exe_name, url in exe_assets.items():
             # availableフラグを確認せず、その場でバージョン比較（更新が必要なもののみダウンロード）
             # ただし、statusにエントリがない場合（新規ファイル）は無条件でダウンロード
@@ -361,7 +411,7 @@ def perform_update(root_window=None):
             if exe_name in status and current_ver:
                 try:
                     current_clean = current_ver.lstrip('v')
-                    is_available = pkg_version.parse(latest_clean) > pkg_version.parse(current_clean)
+                    is_available = parse_version(latest_clean) > parse_version(current_clean)
                     if not is_available:
                         logging.info(f"DEBUG: Skipping {exe_name} (no update available via comparison)")
                         continue
@@ -374,21 +424,33 @@ def perform_update(root_window=None):
             
             # 一時ファイルへダウンロード
             logging.info(f"DEBUG: Downloading from {url}")
-            response = requests.get(url, stream=True, timeout=30)
+            
+            if False:
+                response = requests.get(url, stream=True, timeout=30)
+                tmp_path = os.path.join(tempfile.gettempdir(), exe_name)
+                
+                with open(tmp_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
             tmp_path = os.path.join(tempfile.gettempdir(), exe_name)
             
-            with open(tmp_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+            try:
+                # urllibでダウンロード (進捗表示なしのシンプル版)
+                with urllib.request.urlopen(url, timeout=30) as res, open(tmp_path, 'wb') as f:
+                    shutil.copyfileobj(res, f) # ストリームコピー
 
-            if exe_name == "PoseScaleConfigEditor.exe":
-                logging.info("DEBUG: Editor update deferred.")
-                # Editorは最後に更新するため、情報を保存だけしておく
-                editor_update_info = (tmp_path, dst_path)
-            else:
-                # Generatorなどは即座に上書きコピー
-                shutil.copy2(tmp_path, dst_path)
-                updated_files.append(exe_name)
+                if exe_name == "PoseScaleConfigEditor.exe":
+                    logging.info("DEBUG: Editor update deferred.")
+                    # Editorは最後に更新するため、情報を保存だけしておく
+                    editor_update_info = (tmp_path, dst_path)
+                else:
+                    # Generatorなどは即座に上書きコピー
+                    shutil.copy2(tmp_path, dst_path)
+                    updated_files.append(exe_name)
+
+            except Exception as e:
+                logging.error(f"Download failed for {exe_name}: {e}")
+                # エラーハンドリング
 
         # Editorの更新がある場合、最後に実行            
         if editor_update_info:

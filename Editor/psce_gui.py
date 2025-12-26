@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from PIL import Image, ImageTk
+# from PIL import Image, ImageTk
 import os
 import io
 import configparser
@@ -10,6 +10,7 @@ import ctypes
 import logging
 import traceback
 import threading
+import time     # デバッグログ用（起動時間計測）
 from psce_util import ConfigUtility, VERSION
 from psce_translation import TranslationManager
 from psce_history import HistoryManager
@@ -24,11 +25,14 @@ from psce_update import load_status, perform_update_gui, check_update
 
 class ConfigEditorApp:
     def __init__(self, root):
+        print(f"[DEBUG] {time.time()}: ConfigEditorApp.__init__ start")
  
         # 初期化コード
         self.root = root
         self.utils = ConfigUtility()
         self.trans = TranslationManager()
+
+        print(f"[DEBUG] {time.time()}: Managers initialized")
 
         # 未削除画像リストの初期化（追加）
         self.pending_delete_images = []
@@ -49,6 +53,8 @@ class ConfigEditorApp:
         self.profile_config = self.utils.load_config(self.utils.profile_config_path)
         self.pose_id_map = self.utils.load_config(self.utils.pose_id_map_path)
         
+        print(f"[DEBUG] {time.time()}: Configs & Maps loaded")
+
         # KeyManagerの初期化
         self.key_manager = KeyManager(self)
         
@@ -93,7 +99,9 @@ class ConfigEditorApp:
         self.history = HistoryManager(self)
         
         # Undo/Redoボタンの配置
+        print(f"[DEBUG] {time.time()}: Before create_toolbar")
         self.create_toolbar()
+        print(f"[DEBUG] {time.time()}: After create_toolbar")
         
         # ステータスバーの作成（メッセージボックスの配置）
         self.create_statusbar()
@@ -105,10 +113,12 @@ class ConfigEditorApp:
         self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
         
         # タブの初期化
+        print(f"[DEBUG] {time.time()}: Starting Tab initialization")
         self.general_tab = GeneralSettingsTab(self.notebook, self)
         self.ui_profile = ProfileTab(self.notebook, self)
         self.pose_data_tab = PoseDataTab(self.notebook, self)
         self.map_tab = PoseIDMapTab(self.notebook, self)
+        print(f"[DEBUG] {time.time()}: Tabs initialized")
         
         # HistoryManager用のタブマッピング
         self.tab_map = {
@@ -132,6 +142,8 @@ class ConfigEditorApp:
 
     # ツールバーの作成
     def create_toolbar(self):
+        print(f"[DEBUG] {time.time()}: create_toolbar start")
+
         toolbar = ttk.Frame(self.root, padding=2)
         toolbar.pack(side='top', fill='x')
         
@@ -170,7 +182,9 @@ class ConfigEditorApp:
             ttk.Button(toolbar, text="GitHub", command=self.open_github).pack(side='right', padx=2)  
 
         # GitHubボタンの配置後にチェックを開始（anchorとして使用するため）
+        print(f"[DEBUG] {time.time()}: Calling start_background_update_check")
         self.start_background_update_check(toolbar, github_btn if 'github_btn' in locals() else None)
+        print(f"[DEBUG] {time.time()}: Called start_background_update_check")
 
 
             
@@ -218,93 +232,6 @@ class ConfigEditorApp:
         except Exception as e:
             logging.error(f"Update check error: {e}")
 
-    if False:
-        def start_background_update_check(self, toolbar, anchor_widget):
-            """バックグラウンドでアップデートを確認し、結果があればボタンを表示"""
-            def run_check():
-                try:
-                    # Editor自身のチェック
-                    check_update(current_version=VERSION, exe_name="PoseScaleConfigEditor.exe")
-                    
-                    # Generatorのステータスも確認（EditorとGeneratorは同じディレクトリにあると仮定）
-                    app_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
-                    generator_path = os.path.join(app_dir, "PoseScaleTomlGenerator.exe")
-                    
-                    if os.path.exists(generator_path):
-                        # Generatorのバージョンを取得（pstg_util.VERSIONと同じロジック）
-                        # ここでは簡易的に、status.jsonから前回のgenerator versionを取得
-                        status = load_status()
-                        gen_status = status.get('PoseScaleTomlGenerator.exe', {})
-                        gen_version = gen_status.get('current_version', VERSION)  # フォールバック
-                        
-                        # Generatorのステータスも更新
-                        check_update(current_version=gen_version, exe_name="PoseScaleTomlGenerator.exe")
-                        
-                except Exception as e:
-                    logging.error(f"Background update check failed: {e}")
-                
-                # メインスレッドでUI更新をスケジュール
-                self.root.after(0, lambda: self.check_and_show_update_button(toolbar, anchor_widget))
-                
-            # デーモンスレッドで実行（アプリ終了時に道連れ停止）
-            threading.Thread(target=run_check, daemon=True).start()
-
-        def check_and_show_update_button(self, toolbar, anchor_widget):
-            """アップデート情報を確認して通知ボタンを表示"""
-            try:
-                from packaging import version as pkg_version
-                
-                status = load_status()
-                latest_version = status.get('latest_version', '')
-                
-                if not latest_version:
-                    return
-                
-                editor_status = status.get('PoseScaleConfigEditor.exe', {})
-                gen_status = status.get('PoseScaleTomlGenerator.exe', {})
-                
-                # availableフラグを信頼せず、その場でバージョン比較
-                editor_available = False
-                gen_available = False
-                
-                try:
-                    latest_clean = latest_version.lstrip('v')
-                    
-                    # Editorのバージョン確認
-                    editor_current = editor_status.get('current_version', VERSION)
-                    editor_clean = editor_current.lstrip('v')
-                    editor_available = pkg_version.parse(latest_clean) > pkg_version.parse(editor_clean)
-                    
-                    # Generatorのバージョン確認
-                    gen_current = gen_status.get('current_version', '')
-                    if gen_current:
-                        gen_clean = gen_current.lstrip('v')
-                        gen_available = pkg_version.parse(latest_clean) > pkg_version.parse(gen_clean)
-                except Exception as e:
-                    logging.error(f"Version comparison error: {e}")
-                    return
-                
-                ver_text = f"v{latest_version}" if not latest_version.startswith('v') else latest_version
-                
-                # どちらかが更新可能な場合にボタン表示
-                if editor_available or gen_available:
-                    # ボタンテキストの決定
-                    if editor_available and gen_available:
-                        btn_text = f"New Release: v{ver_text}"
-                    elif editor_available:
-                        btn_text = f"Editor Update: v{ver_text}"
-                    else:
-                        btn_text = f"Generator Update: v{ver_text}"
-                    
-                    update_btn = ttk.Button(
-                        toolbar, 
-                        text=btn_text, 
-                        command=self.on_update_click
-                    )
-                    update_btn.pack(side='right', padx=5)
-                    
-            except Exception as e:
-                logging.error(f"Update check error: {e}")
 
     def on_update_click(self):
         """アップデートボタン押下時：詳細ダイアログを表示して更新確認"""
@@ -312,63 +239,133 @@ class ConfigEditorApp:
         # perform_update_gui を呼び出す（これが詳細ダイアログを出す）
         perform_update_gui(self.root)
 
+    if False:
+        def create_statusbar(self):
+            """ステータスバーを作成"""
+            # メインコンテンツと同じパディングを持たせるためのコンテナ（背景色なし、位置調整用）
+
+            # self.statusbar_frame = ttk.Frame(self.root, padding=2)
+            self.statusbar_frame = tk.Frame(self.root, height=25)   # 高さ設定
+            self.statusbar_frame.pack(side='bottom', fill='x', padx=10, pady=(0, 5))    # pady=(0, 5)で下部に少し余白を持たせる
+            self.statusbar_frame.pack_propagate(False) # サイズ固定
+
+            # 区切り線（オプション：より一体感を出すなら削除しても良い）
+            separator = ttk.Separator(self.statusbar_frame, orient='horizontal')
+            separator.pack(fill='x', pady=(0, 2))
+            
+            self.status_var = tk.StringVar()
+            """
+            # フォントを少し小さくして控えめに
+            self.status_label = ttk.Label(self.statusbar_frame, textvariable=self.status_var, anchor='w', font=("", 9))
+            self.status_label.pack(side='left', fill='x', expand=True)
+            """
+            # 白いボックス風のデザイン（メッセージ部分のみ）
+            self.status_label = tk.Label(
+                self.statusbar_frame, 
+                textvariable=self.status_var, 
+                font=("Meiryo UI", 9),  # フォントを指定するなら"Meiryo UI"など（Windws規定フォントだとINFOアイコンがただのiになるっぽい）
+                bg='white',             
+                fg='#333333',           
+                relief='solid',         
+                bd=1,                   
+                padx=20, pady=2         
+            )
+            # 初期状態では非表示（packしない）
+
+        def show_status_message(self, message, msg_type="info", duration=3000):     # 特に指定しない時のアイコンはINFO
+            """ステータスバーにメッセージを表示し、一定時間後に消去する
+            
+            Args:
+                message (str): 表示するメッセージ
+                msg_type (str): "info", "success", "warning", "error" のいずれか
+                duration (int): 表示時間（ミリ秒）。Noneの場合は消去しない。
+            """
+            # アイコン定義
+            icons = {
+                "info": "ℹ️ ",
+                "success": "✅ ",
+                "warning": "⚠️ ",
+                "error": "❌ "
+            }
+            icon = icons.get(msg_type, "")
+            
+            full_message = f"{icon} {message}"
+            self.status_var.set(full_message)
+            
+            # 中央に配置して表示
+            self.status_label.pack(expand=True)
+
+            # 既存のタイマーがあればキャンセル（連続してメッセージが来た場合用）
+            if hasattr(self, '_status_timer') and self._status_timer:
+                self.root.after_cancel(self._status_timer)
+                self._status_timer = None
+                
+            if duration:
+                # 指定時間後に非表示にする処理
+                def hide():
+                    self.status_label.pack_forget()
+                    self.status_var.set("")
+
+                self._status_timer = self.root.after(duration, hide)
+
     def create_statusbar(self):
         """ステータスバーを作成"""
         # メインコンテンツと同じパディングを持たせるためのコンテナ（背景色なし、位置調整用）
-
-        # self.statusbar_frame = ttk.Frame(self.root, padding=2)
         self.statusbar_frame = tk.Frame(self.root, height=25)   # 高さ設定
-        self.statusbar_frame.pack(side='bottom', fill='x', padx=10, pady=(0, 5))    # pady=(0, 5)で下部に少し余白を持たせる
+        self.statusbar_frame.pack(side='bottom', fill='x', padx=10, pady=(0, 5))
         self.statusbar_frame.pack_propagate(False) # サイズ固定
-
-        # 区切り線（オプション：より一体感を出すなら削除しても良い）
+        # 区切り線
         separator = ttk.Separator(self.statusbar_frame, orient='horizontal')
         separator.pack(fill='x', pady=(0, 2))
         
-        self.status_var = tk.StringVar()
-        """
-        # フォントを少し小さくして控えめに
-        self.status_label = ttk.Label(self.statusbar_frame, textvariable=self.status_var, anchor='w', font=("", 9))
-        self.status_label.pack(side='left', fill='x', expand=True)
-        """
-        # 白いボックス風のデザイン（メッセージ部分のみ）
-        self.status_label = tk.Label(
-            self.statusbar_frame, 
-            textvariable=self.status_var, 
-            font=("Meiryo UI", 9),  # フォントを指定するなら"Meiryo UI"など（Windws規定フォントだとINFOアイコンがただのiになるっぽい）
-            bg='white',             
-            fg='#333333',           
-            relief='solid',         
-            bd=1,                   
-            padx=20, pady=2         
+        # --- メッセージ表示用のコンテナ（ここに白背景と枠線を設定） ---
+        self.message_container = tk.Frame(
+            self.statusbar_frame,
+            bg='white',
+            relief='solid',
+            bd=1
+            # padx/padyは内側のラベルに対して指定
         )
-        # 初期状態では非表示（packしない）
-
+        # 初期状態では非表示（show_status_messageでpackする）
+        self.status_icon_var = tk.StringVar()
+        self.status_var = tk.StringVar()
+        # 1. アイコン用ラベル (Segoe UI Emoji)
+        self.status_icon_label = tk.Label(
+            self.message_container, # コンテナの中に配置
+            textvariable=self.status_icon_var,
+            font=("Segoe UI Emoji", 10),    # 少し大きめに設定 
+            bg='white', fg='#333333',
+            bd=0, # 枠線なし
+            padx=0, pady=2 # アイコンの右パディングはテキスト側で調整するか、ここに入れる
+        )
+        self.status_icon_label.pack(side='left', padx=(10, 2)) # 左端の余白
+        # 2. メッセージ用ラベル (Meiryo UI)
+        self.status_text_label = tk.Label(
+            self.message_container, # コンテナの中に配置
+            textvariable=self.status_var,
+            font=("Meiryo UI", 9),
+            bg='white', fg='#333333',
+            bd=0, # 枠線なし
+            padx=0, pady=2
+        )
+        self.status_text_label.pack(side='left', padx=(0, 10)) # 右端の余白
         
     def show_status_message(self, message, msg_type="info", duration=3000):     # 特に指定しない時のアイコンはINFO
-        """ステータスバーにメッセージを表示し、一定時間後に消去する
-        
-        Args:
-            message (str): 表示するメッセージ
-            msg_type (str): "info", "success", "warning", "error" のいずれか
-            duration (int): 表示時間（ミリ秒）。Noneの場合は消去しない。
-        """
+        """ステータスバーにメッセージを表示し、一定時間後に消去する"""
         # アイコン定義
         icons = {
-            "info": "ℹ️ ",
-            "success": "✅ ",
-            "warning": "⚠️ ",
-            "error": "❌ "
+            "info": "ℹ️",    # Unicode絵文字 or テキスト "[I]"
+            "success": "✅",
+            "warning": "⚠️",
+            "error": "❌"
         }
         icon = icons.get(msg_type, "")
+        self.status_icon_var.set(icon)
+        self.status_var.set(message)
         
-        full_message = f"{icon} {message}"
-        self.status_var.set(full_message)
-        
-        # 中央に配置して表示
-        self.status_label.pack(expand=True)
-
-        # 既存のタイマーがあればキャンセル（連続してメッセージが来た場合用）
+        # コンテナを中央に配置して表示
+        self.message_container.pack(expand=True)
+        # 既存のタイマーがあればキャンセル
         if hasattr(self, '_status_timer') and self._status_timer:
             self.root.after_cancel(self._status_timer)
             self._status_timer = None
@@ -376,9 +373,9 @@ class ConfigEditorApp:
         if duration:
             # 指定時間後に非表示にする処理
             def hide():
-                self.status_label.pack_forget()
+                self.message_container.pack_forget() # コンテナごと隠す
                 self.status_var.set("")
-
+                self.status_icon_var.set("")
             self._status_timer = self.root.after(duration, hide)
 
     # 現在のタブを取得

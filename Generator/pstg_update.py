@@ -2,12 +2,13 @@ import sys
 import os
 import json
 import time
-import requests
+import urllib.request
+import urllib.error
 import subprocess
 import logging
 import re
 from datetime import datetime # 日時用
-from packaging import version
+# from packaging import version # 軽量関数に置き換え
 from pstg_util import VERSION
 
 UPDATE_STATUS_FILE = "Settings/update_status.json"
@@ -36,6 +37,17 @@ def save_status(data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8-sig') as f:
         json.dump(data, f, indent=4)
+
+def parse_version(v_str):
+    """バージョン文字列を数値タプルに変換 (例: 'v1.2.3' -> (1, 2, 3))"""
+    if not v_str:
+        return (0, 0, 0)
+    # v除去とbeta除去 (例: v1.0.0-beta -> 1.0.0)
+    v_clean = v_str.lstrip('v').split('-')[0]
+    try:
+        return tuple(map(int, v_clean.split('.')))
+    except ValueError:
+        return (0, 0, 0)
 
 def parse_release_filename(filename):
     # 例: PoseScaleTomlGenerator_v0.1.1-beta.zip → {"version": "0.1.1-beta"}
@@ -76,24 +88,42 @@ def check_update(current_version, exe_name, force=False):
     # 毎回 current_version を更新
     if exe_name not in status:
         status[exe_name] = {}
-    status[exe_name]['current_version'] = current_version  # 引数で渡されたバージョンを使用
+
+    # 実際の内容が違う場合のみ更新フラグを立てる
+    if status[exe_name].get('current_version') != current_version:
+        status[exe_name]['current_version'] = current_version
+        needs_save = True   # 要バージョン情報更新
+    else:
+        needs_save = False
 
     # 頻度制限チェック
     if not force and 'last_checked_iso' in status:
         try:
             last_checked = datetime.fromisoformat(status['last_checked_iso'])
             if (current_time - last_checked).total_seconds() < 3600:
+                if needs_save:  # Trueの時
+                    save_status(status) # status保存
                 return status
         except Exception:
             pass
 
     # GitHub API呼び出し
     try:
+        # urllibライブラリ使用
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"
-        response = requests.get(url, timeout=5) # タイムアウト5秒
+        
+        # タイムアウト設定付きでリクエスト作成
+        req = urllib.request.Request(url)
+        # GitHub APIはUser-Agentがないと拒否される場合があるため設定推奨（なくても動くことが多いが念のため）
+        req.add_header('User-Agent', 'PoseScaleTomlGenerator-Updater')
 
-        if response.status_code == 200:
-            release = response.json()
+        with urllib.request.urlopen(req, timeout=5) as res:
+            if res.status != 200:
+                logging.error(f"Update Check Error: Status Code {res.status}")
+                return None
+            
+            # JSON読み込み
+            release = json.loads(res.read().decode('utf-8'))         
             latest_version = ""
 
             # ZIPファイルからバージョン抽出
@@ -131,18 +161,18 @@ def check_update(current_version, exe_name, force=False):
 
             save_status(status)
             return status
-        else:
-            logging.error(f"Update Check Error: Status Code {response.status_code}")
-            return status
 
+    except urllib.error.URLError as e:
+        # ネットワークエラーやタイムアウト
+        logging.error(f"Update check failed (URLError): {e}")
+        return status
     except Exception as e:
         logging.error(f"Update check failed: {e}")
         return status
 
-
 def check_and_notify_update_console(force=False):
     """アップデート情報を確認してコンソールに通知"""
-    from packaging import version as pkg_version
+    # from packaging import version as pkg_version
 
     try:
         # 更新チェックを実行して status を更新
@@ -163,7 +193,7 @@ def check_and_notify_update_console(force=False):
             # Generatorのバージョン確認
             gen_current = gen_status.get('current_version', VERSION)
             gen_clean = gen_current.lstrip('v')
-            gen_available = pkg_version.parse(latest_clean) > pkg_version.parse(gen_clean)
+            gen_available = parse_version(latest_clean) > parse_version(gen_clean)
         except Exception as e:
             logging.error(f"Version comparison error: {e}")
             return
@@ -175,6 +205,7 @@ def check_and_notify_update_console(force=False):
             logging.info(f"[UPDATE] New Release available: {ver_text}")
             logging.info(f"Current version: {gen_status.get('current_version')}")
             logging.info(f"Download here: {status.get('release_url', '')}")
+            print("-" * 50)
             print(f"GitHub has a recent release: {ver_text}")
             print(f"For details, please check the GitHub release page.")
         else:

@@ -1,5 +1,7 @@
-import os
 import logging
+import time     # デバッグログ用（起動時間計測）
+logging.debug(f"[DEBUG] {time.time()}: SCRIPT START")
+import os
 import subprocess
 import sys
 import traceback
@@ -10,6 +12,7 @@ import pstg_loader
 import pstg_pose
 import pstg_scale
 import pstg_util
+
 
 # コンソールウィンドウの存在チェック
 def has_console():
@@ -48,18 +51,31 @@ def launch_editor():
         logging.error(f"Error: 設定エディタが見つかりません: {editor_path}")
         # input("Enterキーを押して終了してください...")
         if has_console():  # コンソール使用時
-            input("Press Enter to exit...")
+            input("Press Enter to exit...\n")
 
 # メイン処理
 def main():
+    logging.debug(f"[DEBUG] {time.time()}: Entering main")
+
     # バージョン情報をコンソールに表示
     from pstg_util import VERSION
     if VERSION != "v0.0.0-dev": # バージョン情報がある時
         print(f"Pose Scale Toml Generator {VERSION}")
-        print("-" * 50)
         # アップデート通知確認
-        from pstg_update import check_and_notify_update_console
-        check_and_notify_update_console(force=False)    # Trueの時は矯正API取得
+        # アップデート通知確認（非同期で実行）
+        import threading
+        def bg_update_check():
+            try:
+                logging.debug(f"[DEBUG] {time.time()}: BG Update Thread Started") 
+                from pstg_update import check_and_notify_update_console
+                check_and_notify_update_console(force=False)
+                logging.debug(f"[DEBUG] {time.time()}: BG Update Thread Finished")
+            except Exception as e:
+                logging.error(f"Background update thread failed: {e}")
+        
+        logging.debug(f"[DEBUG] {time.time()}: Starting BG thread")
+        threading.Thread(target=bg_update_check, daemon=True).start()
+        logging.debug(f"[DEBUG] {time.time()}: Started BG thread")
         print("=" * 75)
     else:   # バージョン情報がない時（表示しない）
         print("Pose Scale Toml Generator")
@@ -96,6 +112,10 @@ def main():
         output_log = app_config.get('OutputLog', False)
         delete_temp = app_config.get('DeleteTemp', True)
 
+        # OutputLogがFalseの場合は、デバッグ設定が有効でもコンソールログを抑制する
+        if not output_log:
+            show_debug = False
+
         if not show_debug:
             # デバッグ設定が非表示の場合、デフォルト値を強制的に使用する
             output_log = False
@@ -109,7 +129,7 @@ def main():
             print("Usage: Drag and drop a file onto this executable, or use the 'Send to' menu.")
             # input("Press Enter to exit...")
             if has_console():
-                input("Press Enter to exit...")
+                input("Press Enter to exit...\n")
             return
 
         # プログラム開始ログ
@@ -207,7 +227,7 @@ def main():
         traceback.print_exc()
         # input("Enterキーを押して終了してください...")
         if has_console():   # コンソール使用時
-            input("Press Enter to exit...")
+            input("Press Enter to exit...\n")
     
     finally:
         # 10. クリーンアップ (デバッグ設定に基づく)

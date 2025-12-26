@@ -1,8 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-from PIL import Image, ImageTk
+# from PIL import Image, ImageTk
 import os
 import shutil
+import logging
 from psce_util import CustomMessagebox, normalize_text, make_hidden_folder
 
 
@@ -152,6 +153,7 @@ class PoseIDMapTab:
         
         if image_path:
             try:
+                from PIL import Image, ImageTk  # 必要なときだけインポート
                 with Image.open(image_path) as img:
                     img.thumbnail((390, 390))  # 画像を縮小
                     photo = ImageTk.PhotoImage(img)
