@@ -13,7 +13,7 @@ from pstg_util import VERSION
 
 UPDATE_STATUS_FILE = "Settings/update_status.json"
 REPO_OWNER = "Riel2982"
-REPO_NAME = "DIVA-PoseScaleTomlGenarator"
+REPO_NAME = "DIVA-PoseScaleTomlGenerator"
 
 def get_status_path():
     if getattr(sys, 'frozen', False): # PyInstallerでビルドされた場合

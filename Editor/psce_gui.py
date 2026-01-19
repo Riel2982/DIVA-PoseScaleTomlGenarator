@@ -36,6 +36,8 @@ class ConfigEditorApp:
 
         # 未削除画像リストの初期化（追加）
         self.pending_delete_images = []
+        # ステータスメッセージ抑制フラグ
+        self.suppress_status_message = False
 
         # Load Configs
         self.main_config = self.utils.load_config(self.utils.main_config_path)
@@ -199,7 +201,7 @@ class ConfigEditorApp:
     def open_github(self):
         """GitHubリポジトリを開く"""
         import webbrowser
-        webbrowser.open("https://github.com/Riel2982/DIVA-PoseScaleTomlGenarator")
+        webbrowser.open("https://github.com/Riel2982/DIVA-PoseScaleTomlGenerator")
 
 
     def start_background_update_check(self, toolbar, anchor_widget):
@@ -350,8 +352,10 @@ class ConfigEditorApp:
         )
         self.status_text_label.pack(side='left', padx=(0, 10)) # 右端の余白
         
-    def show_status_message(self, message, msg_type="info", duration=3000):     # 特に指定しない時のアイコンはINFO
+    def show_status_message(self, message, msg_type="info", duration=1500):     # 特に指定しない時のアイコンはINFO
         """ステータスバーにメッセージを表示し、一定時間後に消去する"""
+        if self.suppress_status_message: return
+
         # アイコン定義
         icons = {
             "info": "ℹ️",    # Unicode絵文字 or テキスト "[I]"
@@ -392,12 +396,14 @@ class ConfigEditorApp:
     def undo(self):
         """Undo操作"""
         context = self.get_current_context()
-        self.history.undo(context)
+        if self.history.undo(context):
+            self.show_status_message(self.trans.get("msg_undo_done"), "info")
 
     def redo(self):
         """Redo操作"""
         context = self.get_current_context()
-        self.history.redo(context)
+        if self.history.redo(context):
+            self.show_status_message(self.trans.get("msg_redo_done"), "info")
 
     def refresh_current_tab(self):
         # 現在のコンテキストを取得
@@ -407,24 +413,34 @@ class ConfigEditorApp:
         self.history.snapshot(context)
         
         # コンテキストに基づいて特定のファイルを再読み込み
-        if context == 'general':
-            self.main_config = self.utils.load_config(self.utils.main_config_path)
-        elif context == 'profile':
-            self.profile_config = self.utils.load_config(self.utils.profile_config_path)
-        elif context == 'data':
-            # PoseScaleDataタブは内部で再読み込みを処理します（ディレクトリスキャン + ファイルの再読み込み）
-            self.pose_data_tab.refresh_pose_files()
-            # 再読み込みを処理する必要はありません
-            return
-        elif context == 'map':
-            self.pose_id_map = self.utils.load_config(self.utils.pose_id_map_path)
-        elif context == 'key':
-            self.key_manager.load_key_map()
-            self.key_manager.apply_shortcuts(self.root)
-            self.ui_key.refresh_key_list()
-            
-        # UIを更新
-        self.refresh_current_tab_ui()
+        try:
+            self.suppress_status_message = True
+            if context == 'general':
+                self.main_config = self.utils.load_config(self.utils.main_config_path)
+            elif context == 'profile':
+                self.profile_config = self.utils.load_config(self.utils.profile_config_path)
+            elif context == 'data':
+                # PoseScaleDataタブは内部で再読み込みを処理します（ディレクトリスキャン + ファイルの再読み込み）
+                self.pose_data_tab.refresh_pose_files()
+                self.suppress_status_message = False
+                # メッセージバー
+                self.show_status_message(self.trans.get("msg_refreshed"), "success")
+                # 再読み込みを処理する必要はありません
+                return
+            elif context == 'map':
+                self.pose_id_map = self.utils.load_config(self.utils.pose_id_map_path)
+            elif context == 'key':
+                self.key_manager.load_key_map()
+                self.key_manager.apply_shortcuts(self.root)
+                self.ui_key.refresh_key_list()
+                
+            # UIを更新
+            self.refresh_current_tab_ui()
+        finally:
+             self.suppress_status_message = False
+
+        # メッセージバー
+        self.show_status_message(self.trans.get("msg_refreshed"), "success")
 
     def update_undo_redo_buttons(self):
         """Undo/Redoボタンの状態を更新"""
@@ -476,6 +492,8 @@ class ConfigEditorApp:
                 widget.last_value = val
                 widget.icursor('end')
                 widget.programmatic_change = False
+
+                self.app.show_status_message(self.trans.get("msg_undo_done"), "info")
                 
             return "break"
 
@@ -491,6 +509,8 @@ class ConfigEditorApp:
                 widget.last_value = val
                 widget.icursor('end')
                 widget.programmatic_change = False
+
+                self.app.show_status_message(self.trans.get("msg_redo_done"), "info")
                 
             return "break"
         
